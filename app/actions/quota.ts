@@ -1,28 +1,15 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
-import { checkQuota } from '@/lib/quota'
+import { auth } from '@/lib/auth'
+import { getQuotaInfo } from '@/lib/db/queries'
 import type { ActionResult, QuotaInfo } from '@/lib/types'
 
-export async function getQuotaInfo(): Promise<ActionResult<QuotaInfo>> {
-  try {
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return { success: false, error: 'Authentication required' }
-    }
-
-    const quota = await checkQuota(supabase, user.id)
-
-    return { success: true, data: quota }
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : 'An unexpected error occurred'
-    return { success: false, error: message }
+export async function getQuotaInfoAction(): Promise<ActionResult<QuotaInfo>> {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return { success: false, error: 'Authentication required' }
   }
+
+  const quota = await getQuotaInfo(session.user.id)
+  return { success: true, data: quota }
 }

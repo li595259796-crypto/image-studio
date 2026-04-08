@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import { Wand2, ImagePlus, Images, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -97,16 +98,12 @@ export function NavBar({ user, quota }: NavBarProps) {
                 {user.displayName ?? user.email}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer p-0">
-                <form action="/auth/signout" method="POST" className="w-full">
-                  <button
-                    type="submit"
-                    className="flex w-full items-center gap-2 px-2 py-1.5"
-                  >
-                    <LogOut className="size-4" />
-                    Log out
-                  </button>
-                </form>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => signOut({ callbackUrl: '/login' })}
+              >
+                <LogOut className="size-4" />
+                Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

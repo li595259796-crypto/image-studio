@@ -79,7 +79,7 @@ export function ImageViewer({
         <div className="space-y-4">
           <div className="overflow-hidden rounded-lg border">
             <img
-              src={image.public_url ?? ''}
+              src={image.blobUrl ?? ''}
               alt={image.prompt}
               className="w-full object-contain"
             />
@@ -92,10 +92,10 @@ export function ImageViewer({
             <Separator />
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <Badge variant="secondary">{image.type}</Badge>
-              {image.aspect_ratio && (
-                <Badge variant="outline">{image.aspect_ratio}</Badge>
+              {image.aspectRatio && (
+                <Badge variant="outline">{image.aspectRatio}</Badge>
               )}
-              <span>{formatDate(image.created_at)}</span>
+              <span>{formatDate(image.createdAt.toString())}</span>
             </div>
           </div>
         </div>
@@ -121,7 +121,7 @@ export function ImageViewer({
             className="gap-1.5"
             render={
               <a
-                href={image.public_url ?? ''}
+                href={image.blobUrl ?? ''}
                 download
                 target="_blank"
                 rel="noopener noreferrer"

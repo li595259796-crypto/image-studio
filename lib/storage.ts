@@ -1,52 +1,23 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-
-const BUCKET = 'images'
-
-function generatePath(userId: string): string {
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).slice(2, 10)
-  return `${userId}/${timestamp}-${random}.png`
-}
+import { put, del } from '@vercel/blob'
 
 export async function uploadImage(
-  supabase: SupabaseClient,
   userId: string,
-  imageBuffer: Buffer,
-  filename?: string
-): Promise<{ path: string; publicUrl: string }> {
-  const path = filename ?? generatePath(userId)
+  imageBuffer: Buffer
+): Promise<{ url: string; size: number }> {
+  const filename = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.png`
 
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, imageBuffer, {
-      contentType: 'image/png',
-      upsert: false,
-    })
+  const blob = await put(filename, imageBuffer, {
+    access: 'public',
+    contentType: 'image/png',
+  })
 
-  if (error) {
-    throw new Error(`Failed to upload image: ${error.message}`)
-  }
-
-  const publicUrl = getPublicUrl(supabase, path)
-
-  return { path, publicUrl }
+  return { url: blob.url, size: imageBuffer.length }
 }
 
-export async function deleteImage(
-  supabase: SupabaseClient,
-  path: string
-): Promise<void> {
-  const { error } = await supabase.storage.from(BUCKET).remove([path])
-
-  if (error) {
-    throw new Error(`Failed to delete image: ${error.message}`)
+export async function deleteImage(url: string): Promise<void> {
+  try {
+    await del(url)
+  } catch {
+    // Non-fatal: blob may already be deleted
   }
-}
-
-export function getPublicUrl(
-  supabase: SupabaseClient,
-  path: string
-): string {
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-  return data.publicUrl
 }

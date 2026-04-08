@@ -1,7 +1,8 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
-import { deleteImage as deleteStorageImage } from '@/lib/storage'
+import { auth } from '@/lib/auth'
+import { getUserImages, getImageByIdAndUser, deleteImage as deleteImageRecord } from '@/lib/db/queries'
+import { deleteImage as deleteBlobImage } from '@/lib/storage'
 import type { ActionResult, ImageRecord } from '@/lib/types'
 
 interface GalleryResult {
@@ -15,33 +16,19 @@ export async function getImages(
 ): Promise<ActionResult<GalleryResult>> {
   try {
     const safeLimit = Math.min(Math.max(1, limit), 100)
-    const supabase = await createClient()
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return { success: false, error: 'Authentication required' }
     }
 
-    const { data, error, count } = await supabase
-      .from('images')
-      .select('id, user_id, type, prompt, aspect_ratio, quality, storage_path, public_url, size_bytes, created_at', { count: 'exact' })
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + safeLimit - 1)
-
-    if (error) {
-      throw new Error(`Failed to fetch images: ${error.message}`)
-    }
+    const result = await getUserImages(session.user.id, offset, safeLimit)
 
     return {
       success: true,
       data: {
-        images: (data ?? []) as ImageRecord[],
-        total: count ?? 0,
+        images: result.images as ImageRecord[],
+        total: result.total,
       },
     }
   } catch (error: unknown) {
@@ -59,39 +46,20 @@ export async function deleteImageAction(
       return { success: false, error: 'Image ID is required' }
     }
 
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return { success: false, error: 'Authentication required' }
     }
 
-    const { data: image, error: fetchError } = await supabase
-      .from('images')
-      .select('storage_path')
-      .eq('id', imageId)
-      .eq('user_id', user.id)
-      .single()
+    const image = await getImageByIdAndUser(imageId, session.user.id)
 
-    if (fetchError || !image) {
+    if (!image) {
       return { success: false, error: 'Image not found' }
     }
 
-    const { error: deleteError } = await supabase
-      .from('images')
-      .delete()
-      .eq('id', imageId)
-      .eq('user_id', user.id)
+    await deleteImageRecord(imageId, session.user.id)
 
-    if (deleteError) {
-      return { success: false, error: 'Failed to delete image' }
-    }
-
-    await deleteStorageImage(supabase, image.storage_path).catch(() => {
+    await deleteBlobImage(image.blobUrl).catch(() => {
       // Storage cleanup failure is non-fatal; DB record already removed
     })
 

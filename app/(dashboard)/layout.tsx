@@ -1,6 +1,6 @@
+import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import { checkQuota } from '@/lib/quota'
+import { getQuotaInfo } from '@/lib/db/queries'
 import { NavBar } from '@/components/nav-bar'
 
 export default async function DashboardLayout({
@@ -8,31 +8,23 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
+  const session = await auth()
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-
-  if (error || !user) {
+  if (!session?.user) {
     redirect('/login')
   }
 
   let quota = { dailyUsed: 0, dailyLimit: 10 }
   try {
-    const quotaInfo = await checkQuota(supabase, user.id)
-    quota = {
-      dailyUsed: quotaInfo.dailyUsed,
-      dailyLimit: quotaInfo.dailyLimit,
-    }
+    const quotaInfo = await getQuotaInfo(session.user.id!)
+    quota = { dailyUsed: quotaInfo.dailyUsed, dailyLimit: quotaInfo.dailyLimit }
   } catch {
     // Fall back to defaults if quota check fails
   }
 
   const userInfo = {
-    email: user.email ?? '',
-    displayName: user.user_metadata?.display_name as string | undefined,
+    email: session.user.email ?? '',
+    displayName: session.user.name ?? undefined,
   }
 
   return (

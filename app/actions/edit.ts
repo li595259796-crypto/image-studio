@@ -1,9 +1,10 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/lib/auth'
 import { editImage } from '@/lib/image-api'
-import { uploadImage, deleteImage as deleteStorageImage } from '@/lib/storage'
+import { uploadImage, deleteImage } from '@/lib/storage'
 import { checkQuota, recordUsage } from '@/lib/quota'
+import { insertImage } from '@/lib/db/queries'
 import type { ActionResult } from '@/lib/types'
 
 interface EditResult {
@@ -20,6 +21,11 @@ export async function editImageAction(
   formData: FormData
 ): Promise<ActionResult<EditResult>> {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: 'Authentication required' }
+    }
+
     const prompt = formData.get('prompt') as string | null
     const image1 = formData.get('image1') as File | null
     const image2 = formData.get('image2') as File | null
@@ -55,18 +61,7 @@ export async function editImageAction(
       }
     }
 
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return { success: false, error: 'Authentication required' }
-    }
-
-    const quota = await checkQuota(supabase, user.id)
+    const quota = await checkQuota(session.user.id)
     if (!quota.allowed) {
       return {
         success: false,
@@ -86,42 +81,34 @@ export async function editImageAction(
 
     const resultBuffer = await editImage(prompt, imageBuffers)
 
-    const { path, publicUrl } = await uploadImage(
-      supabase,
-      user.id,
-      resultBuffer
-    )
+    const { url } = await uploadImage(session.user.id, resultBuffer)
 
-    const { data: record, error: insertError } = await supabase
-      .from('images')
-      .insert({
-        user_id: user.id,
-        type: 'edit',
-        prompt,
-        storage_path: path,
-        public_url: publicUrl,
-        size_bytes: resultBuffer.length,
-        source_images: sourceImageNames,
-      })
-      .select('id')
-      .single()
+    const record = await insertImage({
+      userId: session.user.id,
+      type: 'edit',
+      prompt,
+      blobUrl: url,
+      sizeBytes: resultBuffer.length,
+      sourceImages: JSON.stringify(sourceImageNames),
+    })
 
-    if (insertError) {
-      await deleteStorageImage(supabase, path).catch(() => {})
-      throw new Error('Failed to save image record')
+    // If DB insert failed but upload succeeded, clean up
+    if (!record) {
+      await deleteImage(url)
+      return { success: false, error: 'Failed to save image record' }
     }
 
-    await recordUsage(supabase, user.id, 'edit')
+    await recordUsage(session.user.id, 'edit')
 
     return {
       success: true,
-      data: { imageUrl: publicUrl, imageId: record.id },
+      data: { imageUrl: url, imageId: record.id },
     }
   } catch (error: unknown) {
     const isUserFacing =
       error instanceof Error &&
-      !error.message.includes('supabase') &&
-      !error.message.includes('storage')
+      !error.message.includes('database') &&
+      !error.message.includes('blob')
     const message = isUserFacing
       ? (error as Error).message
       : 'Failed to edit image. Please try again.'

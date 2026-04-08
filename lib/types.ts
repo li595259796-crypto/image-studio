@@ -1,15 +1,14 @@
 export interface ImageRecord {
   id: string
-  user_id: string
+  userId: string
   type: 'generate' | 'edit'
   prompt: string
-  aspect_ratio: string | null
+  aspectRatio: string | null
   quality: string | null
-  storage_path: string
-  public_url: string | null
-  size_bytes: number | null
-  source_images: string[] | null
-  created_at: string
+  blobUrl: string
+  sizeBytes: number | null
+  sourceImages: string | null
+  createdAt: Date
 }
 
 export interface QuotaInfo {

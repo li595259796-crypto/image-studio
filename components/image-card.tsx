@@ -25,7 +25,7 @@ export function ImageCard({ image, onClick }: ImageCardProps) {
     >
       <div className="aspect-square w-full overflow-hidden">
         <img
-          src={image.public_url ?? ''}
+          src={image.blobUrl ?? ''}
           alt={image.prompt}
           className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
@@ -39,13 +39,13 @@ export function ImageCard({ image, onClick }: ImageCardProps) {
           <Badge variant="secondary" className="text-[10px]">
             {image.type}
           </Badge>
-          {image.aspect_ratio && (
+          {image.aspectRatio && (
             <Badge variant="outline" className="text-[10px]">
-              {image.aspect_ratio}
+              {image.aspectRatio}
             </Badge>
           )}
           <span className="ml-auto text-[10px] text-muted-foreground">
-            {formatDate(image.created_at)}
+            {formatDate(image.createdAt.toString())}
           </span>
         </div>
       </div>
