@@ -101,26 +101,86 @@ export function showQuotaError(locale: Locale, quota: QuotaPayload): void {
 
 #### 现状
 
-`locale-provider.tsx` 用 React state 存 locale，挂在根 `app/layout.tsx`。刷新和换设备会丢。
+`locale-provider.tsx` 用 React state 存 locale，挂在根 `app/layout.tsx`。当前用 localStorage 持久化，刷新不丢但换设备会丢。`LanguageToggle` 组件同时用在 NavBar（已登录）、landing 页和法务页（未登录）。
 
-#### 设计
+#### 单一真相源
 
-1. **DB：** `users` 表加 `locale text default 'zh'` 列
-2. **LocaleProvider 改造：** 增加 `initialLocale` prop
-3. **根 layout 决定初始值：**
-   - 已登录用户：从 DB 读 `users.locale`
-   - 未登录用户（auth 页 + landing 页）：fallback 到 `navigator.language` 检测
-4. **LanguageToggle 改造：** 点击切换时：
-   - 乐观更新本地 state
-   - 调 `updateLocaleAction(locale)` 写 DB
-   - 失败时回滚本地 state + toast 提示
-5. **新增 Server Action：** `updateLocaleAction(locale: 'zh' | 'en')` → 更新 `users.locale`
+| 用户状态 | locale 真相源 | 持久化 |
+|---------|-------------|--------|
+| 已登录 | DB `users.locale` | server action 写 DB |
+| 未登录 | localStorage | client-only，不写 DB |
+
+#### 数据流设计
+
+```
+根 layout (app/layout.tsx)
+  └─ LocaleProvider (保持现状，localStorage fallback)
+       ├─ 未登录页面：localStorage → navigator.language → defaultLocale
+       └─ Dashboard layout (app/(dashboard)/layout.tsx)
+            └─ <LocaleSync locale={dbLocale} />  ← 新增的 client component
+                 └─ mount 时：if dbLocale !== currentLocale → setLocale(dbLocale)
+```
+
+**关键决策：根 `app/layout.tsx` 不调 `auth()`。** 根 layout 保持纯净，不引入 auth 依赖。DB locale 的同步由 dashboard layout 内部的 `<LocaleSync>` 组件完成。
+
+#### LocaleSync 组件
+
+```typescript
+// components/locale-sync.tsx
+'use client'
+export function LocaleSync({ locale }: { locale: Locale }) {
+  const { locale: current, setLocale } = useLocale()
+  useEffect(() => {
+    if (locale !== current) setLocale(locale)
+  }, [locale]) // 只在 DB locale 变化时同步
+  return null
+}
+```
+
+Dashboard layout 渲染：`<LocaleSync locale={profile.locale} />`
+
+这样已登录用户进入 dashboard 时，DB locale 会覆盖 localStorage 值，实现"DB 是已登录用户的真相源"。
+
+#### LanguageToggle 双模行为
+
+`LanguageToggle` 接收可选 `onPersist` 回调。dashboard 里传 server action，未登录页面不传：
+
+```typescript
+// LanguageToggle 改造
+interface LanguageToggleProps {
+  className?: string
+  onPersist?: (locale: Locale) => Promise<void>  // 已登录时传入
+}
+
+function handleSwitch(newLocale: Locale) {
+  const prev = locale
+  setLocale(newLocale)                    // 1. 乐观更新 state + localStorage
+  if (onPersist) {
+    onPersist(newLocale).catch(() => {
+      setLocale(prev)                     // 2. 失败回滚
+      toast.error('语言切换失败')
+    })
+  }
+}
+```
+
+- **NavBar 里（已登录）：** `<LanguageToggle onPersist={updateLocaleAction} />`
+- **Landing / 法务页（未登录）：** `<LanguageToggle />` — 无 onPersist，纯 localStorage
+
+#### Server Action
+
+`updateLocaleAction(locale: 'zh' | 'en')` → 校验 auth → 更新 `users.locale`
+
+#### DB
+
+`users` 表加 `locale text default 'zh'` 列
 
 #### 不做的事
 
+- 不改根 `app/layout.tsx` 的 auth 逻辑
 - 不加 cookie 层
-- 不做 URL 路由级 i18n（`/zh/generate`）
-- 不做 SSR 级 locale detection（Phase 1 用 client-side `navigator.language`）
+- 不做 URL 路由级 i18n
+- 不做 SSR 级 locale detection
 
 ### 3. Dashboard 用户信息从 DB 读
 
@@ -133,17 +193,32 @@ export function showQuotaError(locale: Locale, quota: QuotaPayload): void {
 Dashboard layout 从 DB 查完整用户 profile：
 
 ```typescript
-// 查询返回
-{ name, email, image, locale }
+// lib/db/queries.ts 新增
+export async function getUserProfile(userId: string) {
+  // 返回 { name, email, image, locale }
+}
 ```
 
-传给 NavBar（profile 数据）。locale 值通过 `<script>` 注入或 props 传递给客户端，由 LocaleProvider 在根 layout 消费。
+Dashboard layout 调用 `getUserProfile`，将 profile 传给 NavBar 和 `<LocaleSync>`。
 
-**层级关系：** LocaleProvider 挂在根 `app/layout.tsx`（覆盖所有页面）。dashboard layout 查 DB 获取 locale，通过 client-side hydration 更新 LocaleProvider 的 state。未登录页面 fallback 到 `navigator.language`。
+#### 设置页保存后的刷新策略
+
+Settings 页面保存成功后，调用 `router.refresh()` 触发 dashboard layout server component 重新执行，从 DB 读取最新 profile，NavBar 自然拿到最新的昵称/头像/locale。
+
+**具体流程：**
+
+1. 用户在 /settings 改昵称 → 点保存
+2. `updateProfileAction` 写 DB 成功
+3. 客户端收到 success → `toast.success(...)` + `router.refresh()`
+4. `router.refresh()` 重新执行 dashboard layout server component
+5. `getUserProfile` 从 DB 读到新昵称
+6. NavBar 收到新 profile props → 立刻展示新昵称
+
+同理适用于语言切换和头像上传。
 
 这同时解决：
-- locale 持久化读取
-- 昵称修改后即时展示
+- locale 持久化读取（通过 LocaleSync）
+- 昵称修改后即时展示（通过 router.refresh）
 - 后续头像接入的基础
 
 ### 4. NavBar 入口 + 路由
@@ -218,7 +293,9 @@ nav section 加 `settings` 和 `upgrade` 两个 key。
 
 #### 反馈
 
-每个区块独立保存，成功用 toast，表单校验失败用 inline。
+每个区块独立保存，成功用 `toast.success` + `router.refresh()`，表单校验失败用 inline。
+
+`router.refresh()` 触发 dashboard layout 重新执行 → NavBar 拿到最新 profile。
 
 #### 改密码后的会话策略
 
@@ -352,22 +429,23 @@ export async function getImages(
 | 文件 | 改动 |
 |------|------|
 | `lib/types.ts` | 扩展 `ActionResult` 加 `errorCode` + `quota` |
-| **新增** `lib/error-toast.ts` | `showError` + `showQuotaError` |
-| `app/actions/generate.ts` | quota exceeded 返回结构化错误 |
+| **新增** `lib/error-toast.ts` | `showError` + `showQuotaError`（含配额 toast 带升级 CTA） |
+| `app/actions/generate.ts` | quota exceeded 返回结构化错误（`errorCode` + `quota` payload） |
 | `app/actions/edit.ts` | 同上 |
-| `components/scenario-form.tsx` | 检查 errorCode，quota 走 toast |
+| `components/scenario-form.tsx` | 检查 `errorCode === 'quota_exceeded'` → 调 `showQuotaError`，不显示 inline |
 | `components/generate-form.tsx` | 同上 |
 | `components/edit-form.tsx` | 同上 |
-| `lib/db/schema.ts` | users 加 `locale` 列 |
-| **新增** `app/actions/settings.ts` | `updateLocaleAction` |
-| `components/locale-provider.tsx` | 加 `initialLocale` prop |
-| `app/layout.tsx` | 传 initialLocale 给 LocaleProvider |
-| `app/(dashboard)/layout.tsx` | 从 DB 查完整 user profile（name, email, image, locale） |
-| `lib/db/queries.ts` | 加 `getUserProfile` 查询 |
-| `components/nav-bar.tsx` | 下拉菜单加设置/升级，接收 profile 数据 |
-| `components/quota-badge.tsx` | 改为 button 语义，点击跳 /upgrade |
-| `components/language-toggle.tsx` | 调 updateLocaleAction + 失败回滚 |
-| `lib/i18n.ts` | 加 nav.settings、nav.upgrade 等翻译 |
+| `lib/db/schema.ts` | users 加 `locale` 列（DB migration） |
+| **新增** `app/actions/settings.ts` | `updateLocaleAction`（校验 auth → 更新 `users.locale`） |
+| **新增** `components/locale-sync.tsx` | 客户端组件，mount 时将 DB locale 同步到 LocaleProvider |
+| `app/(dashboard)/layout.tsx` | 从 DB 查 `getUserProfile` → 传 profile 给 NavBar + 传 locale 给 `<LocaleSync>` |
+| `lib/db/queries.ts` | 加 `getUserProfile(userId)` 查询 |
+| `components/nav-bar.tsx` | 下拉菜单加设置/升级入口，接收 profile 数据 |
+| `components/quota-badge.tsx` | 改为 `<button>` 语义，点击跳 `/upgrade` |
+| `components/language-toggle.tsx` | 加 `onPersist` 可选回调：已登录传 server action，未登录不传 |
+| `lib/i18n.ts` | 加 nav.settings、nav.upgrade、error toast 相关翻译 |
+
+**注意：根 `app/layout.tsx` 不改。** LocaleProvider 保持现状（localStorage fallback），DB locale 由 dashboard 内的 `<LocaleSync>` 同步。
 
 ### Phase 2
 
