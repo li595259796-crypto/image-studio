@@ -91,20 +91,29 @@ CREATE INDEX idx_tasks_user_created ON tasks(user_id, created_at);
 2. Edit 场景：源图片上传到 Vercel Blob 临时路径 `temp/{userId}/{taskId}/source-{n}.png`，拿到 URL 存入 payload
 3. 写入 `tasks` 表（status=pending）
 4. 扣配额（`recordUsage`）— 只扣一次，worker 重试不重复扣配额。将 usageLog.id 写入 task.usageLogId
-5. Fire-and-forget 触发 worker（加速器，非唯一机制）：
+5. Fire-and-forget 触发 worker（加速器，非唯一机制）：调用 `triggerWorker()` 工具函数
    ```typescript
-   fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/worker/process`, {
-     method: 'POST',
-     headers: { Authorization: `Bearer ${process.env.WORKER_SECRET}` },
-     signal: AbortSignal.timeout(1000),
-   }).catch(() => {})  // 失败静默，cron/轮询兜底
+   // lib/trigger-worker.ts
+   export function triggerWorker(): void {
+     const base = process.env.APP_URL ?? `https://${process.env.VERCEL_URL}`
+     fetch(`${base}/api/worker/process`, {
+       method: 'POST',
+       headers: { Authorization: `Bearer ${process.env.WORKER_SECRET}` },
+       signal: AbortSignal.timeout(1000),
+     }).catch(() => {})  // 失败静默，轮询兜底
+   }
    ```
+   - 使用 server-only 的 `APP_URL`（手动配置）或 `VERCEL_URL`（Vercel 自动注入），不使用 `NEXT_PUBLIC_*`
+   - 抽象为 `triggerWorker()` 函数，所有触发点（提交、轮询兜底、重试）统一调用
 6. 返回 `{ success: true, data: { taskId } }`
 
 **Worker 兜底启动机制：**
 - fire-and-forget 只是加速器，不是唯一启动方式
 - Vercel Cron（Pro 环境）每 1 分钟触发兜底
-- Hobby 环境：`getTaskStatus` 被调用时，如果发现 `status='processing' AND updatedAt < now() - 10min`，直接执行僵尸回收 + 重新触发 worker
+- Hobby 环境（无 Cron，轮询即兜底）：
+  - `getTaskStatus` 被调用时，如果发现当前任务 `status='processing' AND updatedAt < now() - 10min`，直接执行僵尸回收 + 调用 `triggerWorker()`
+  - `getTaskStatus` 被调用时，如果发现当前任务 `status='pending' AND createdAt < now() - 15s`（fire-and-forget 可能没打到），也调用 `triggerWorker()` re-kick
+  - `getRecentPendingTask` 同理：返回 pending/processing 任务时，顺带调用 `triggerWorker()` 确保有 worker 在跑
 - Worker 每次处理完一个任务后继续抢下一个（循环直到空或达上限）
 
 **Elapsed 数据来源：**
@@ -113,8 +122,8 @@ CREATE INDEX idx_tasks_user_created ON tasks(user_id, created_at);
 - 刷新页面后时间仍准确
 
 **任务恢复路径（用户关页再回来）：**
-- Generate/Edit 客户端组件 mount 时调用 `getRecentPendingTask(userId, type)`
-- 查询：`WHERE userId = ? AND type = ? AND status IN ('pending', 'processing') ORDER BY createdAt DESC LIMIT 1`
+- Generate/Edit 客户端组件 mount 时调用 `getRecentPendingTask(type)`（userId 从 session 推断，不从客户端传，防 IDOR）
+- 查询：`WHERE userId = session.user.id AND type = ? AND status IN ('pending', 'processing') ORDER BY createdAt DESC LIMIT 1`
 - 如果存在，自动恢复轮询
 - 不依赖 URL 参数或 localStorage，只从 DB 查
 
@@ -262,12 +271,13 @@ interface TaskStatusResult {
 
 **Cron 策略：**
 - 实时主链路始终靠 fire-and-forget 触发 worker，不依赖 Cron
-- **Hobby 环境**：无 Cron。僵尸回收在 `getTaskStatus` 内触发（轮询时顺带检查）
+- **Hobby 环境**：无 Cron。`getTaskStatus` 和 `getRecentPendingTask` 负责兜底：发现 pending 超 15s 或 processing 僵尸时调用 `triggerWorker()` re-kick
 - **Pro 环境**：配 `*/1 * * * *` Cron 兜底 + 僵尸回收
 
 **环境变量：**
 - `WORKER_SECRET` — worker route 鉴权
 - `CRON_SECRET` — cron route 鉴权
+- `APP_URL` — 服务端内部调用基础地址（可选，缺省用 `VERCEL_URL`）
 
 ---
 
@@ -278,6 +288,7 @@ interface TaskStatusResult {
 | 文件 | 职责 |
 |------|------|
 | `lib/task-worker.ts` | `processNextTask()` 核心执行逻辑 |
+| `lib/trigger-worker.ts` | `triggerWorker()` fire-and-forget 触发函数 |
 | `app/actions/tasks.ts` | getTaskStatus、getRecentPendingTask、retryTaskAction |
 | `app/api/worker/process/route.ts` | Worker API route |
 | `app/api/cron/process-tasks/route.ts` | Cron 兜底 route（仅 Pro） |
