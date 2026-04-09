@@ -5,7 +5,7 @@ import { checkQuota } from '@/lib/quota'
 import { createTask, recordUsageReturningId } from '@/lib/db/queries'
 import { triggerWorker } from '@/lib/trigger-worker'
 import { put } from '@vercel/blob'
-import { fileTypeFromBuffer, type FileTypeResult } from 'file-type'
+import { fileTypeFromBuffer } from 'file-type'
 import type { ActionResult } from '@/lib/types'
 
 interface SubmitResult {
@@ -39,7 +39,6 @@ export async function editImageAction(
     }
 
     const MAX_SIZE = 10 * 1024 * 1024
-    const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 
     if (image1.size > MAX_SIZE) {
       return { success: false, error: 'Image 1 exceeds the 10 MB limit' }
@@ -51,20 +50,22 @@ export async function editImageAction(
     }
 
     // Magic-byte validation (server-side, not trusting client File.type)
+    const ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
     const buffer1 = Buffer.from(await image1.arrayBuffer())
     const detected1 = await fileTypeFromBuffer(buffer1)
-    if (!detected1 || !ALLOWED_TYPES.includes(detected1.mime)) {
+    if (!detected1 || !ALLOWED_MIMES.includes(detected1.mime)) {
       return { success: false, error: 'File content does not match a supported image format' }
     }
 
     let buffer2: Buffer | null = null
-    let detected2: FileTypeResult | undefined
+    let detected2: { mime: string; ext: string } | null = null
     if (image2 && image2.size > 0) {
       buffer2 = Buffer.from(await image2.arrayBuffer())
-      detected2 = await fileTypeFromBuffer(buffer2)
-      if (!detected2 || !ALLOWED_TYPES.includes(detected2.mime)) {
+      const result2 = await fileTypeFromBuffer(buffer2)
+      if (!result2 || !ALLOWED_MIMES.includes(result2.mime)) {
         return { success: false, error: 'File 2 content does not match a supported image format' }
       }
+      detected2 = result2
     }
 
     const quota = await checkQuota(session.user.id)
@@ -85,16 +86,16 @@ export async function editImageAction(
     const tempId = crypto.randomUUID()
     const sourceImageUrls: string[] = []
 
-    const blob1 = await put(`temp/${session.user.id}/${tempId}/source-0.png`, buffer1, {
+    const blob1 = await put(`temp/${session.user.id}/${tempId}/source-0.${detected1.ext}`, buffer1, {
       access: 'public',
       contentType: detected1.mime,
     })
     sourceImageUrls.push(blob1.url)
 
-    if (buffer2) {
-      const blob2 = await put(`temp/${session.user.id}/${tempId}/source-1.png`, buffer2, {
+    if (buffer2 && detected2) {
+      const blob2 = await put(`temp/${session.user.id}/${tempId}/source-1.${detected2.ext}`, buffer2, {
         access: 'public',
-        contentType: detected2!.mime,
+        contentType: detected2.mime,
       })
       sourceImageUrls.push(blob2.url)
     }

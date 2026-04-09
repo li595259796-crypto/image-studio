@@ -61,8 +61,9 @@ async function executeTask(task: {
 
       const imageBuffers: Buffer[] = []
       for (const sourceUrl of payload.sourceImageUrls) {
-        // SSRF guard: only fetch from Vercel Blob storage
-        if (!sourceUrl.startsWith('https://') || !sourceUrl.includes('.blob.vercel-storage.com/')) {
+        // SSRF guard: only fetch from Vercel Blob storage (hostname check, not substring)
+        const parsed = new URL(sourceUrl)
+        if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('.blob.vercel-storage.com')) {
           throw new Error('Rejected fetch to disallowed URL')
         }
         const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(30_000) })
@@ -94,9 +95,11 @@ async function executeTask(task: {
     console.error('[task-worker] Task failed', { taskId: task.id, type: task.type, error: rawMessage })
 
     // Sanitize error for user-facing lastError.
+    // SAFETY: the fallback 'Image processing failed' is intentionally generic —
+    // any unrecognized error falls through to it, ensuring no internal details leak.
     const normalizedMessage = rawMessage.toLowerCase()
     let errorMessage = 'Image processing failed'
-    if (normalizedMessage.includes('timeout') || normalizedMessage.includes('abort')) {
+    if (normalizedMessage.includes('timeout') || normalizedMessage.includes('abort') || normalizedMessage.includes('aborted')) {
       errorMessage = 'Processing timed out, will retry'
     } else if (normalizedMessage.includes('source image')) {
       errorMessage = 'Failed to load source image'
