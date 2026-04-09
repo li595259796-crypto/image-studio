@@ -10,7 +10,7 @@ import { useLocale } from '@/components/locale-provider'
 import { BRAND_NAME } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,7 @@ import {
 import { QuotaBadge } from '@/components/quota-badge'
 
 interface NavBarProps {
-  user: { email: string; displayName?: string }
+  user: { email: string; displayName?: string; avatarUrl?: string }
   quota: { dailyUsed: number; dailyLimit: number }
 }
 
@@ -96,6 +96,9 @@ export function NavBar({ user, quota }: NavBarProps) {
               className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Avatar size="sm">
+                {user.avatarUrl && (
+                  <AvatarImage src={user.avatarUrl} alt={user.displayName ?? user.email} />
+                )}
                 <AvatarFallback className="text-xs">
                   {getInitials(user.email, user.displayName)}
                 </AvatarFallback>

@@ -36,6 +36,7 @@ export default async function DashboardLayout({
   const userInfo = {
     email: profile?.email ?? session.user.email ?? '',
     displayName: profile?.name ?? undefined,
+    avatarUrl: profile?.image ?? undefined,
   }
 
   const rawLocale = profile?.locale
