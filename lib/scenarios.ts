@@ -97,6 +97,8 @@ export function buildPrompt(
   let prompt = scenario.promptTemplate.replace('{描述}', description)
   if (style) {
     prompt = prompt.replace('{风格}', style)
+  } else {
+    prompt = prompt.replace('{风格}', '')
   }
   return prompt
 }
