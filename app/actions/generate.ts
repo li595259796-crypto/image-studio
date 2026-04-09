@@ -68,8 +68,7 @@ export async function generateImageAction(
     triggerWorker()
 
     return { success: true, data: { taskId } }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to submit task'
-    return { success: false, error: message }
+  } catch {
+    return { success: false, error: 'Failed to submit generation task. Please try again.' }
   }
 }

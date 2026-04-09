@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { getTaskById, getRecentPendingTaskByType, resetTaskForRetry, recordUsageReturningId, recoverZombieTasks } from '@/lib/db/queries'
+import { getTaskById, getRecentPendingTaskByType, resetTaskForRetry, recordUsageReturningId } from '@/lib/db/queries'
 import { checkQuota } from '@/lib/quota'
 import { triggerWorker } from '@/lib/trigger-worker'
 import type { ActionResult, TaskStatusResult } from '@/lib/types'
@@ -34,10 +34,8 @@ export async function getTaskStatus(
       return { success: false, error: 'Task not found' }
     }
 
+    // Hobby fallback: re-kick worker if task appears stuck (no recoverZombieTasks here — cron handles that)
     if (shouldReKick(task)) {
-      if (task.status === 'processing') {
-        await recoverZombieTasks()
-      }
       triggerWorker()
     }
 
@@ -74,9 +72,6 @@ export async function getRecentPendingTask(
     }
 
     if (shouldReKick(task)) {
-      if (task.status === 'processing') {
-        await recoverZombieTasks()
-      }
       triggerWorker()
     }
 

@@ -1,6 +1,6 @@
 import { generateImage, editImage } from '@/lib/image-api'
 import { uploadImage } from '@/lib/storage'
-import { insertImage, claimNextTask, markTaskCompleted, markTaskRetryable, markTaskFailed, deleteUsageLog } from '@/lib/db/queries'
+import { insertImage, claimNextTask, saveTaskResult, markTaskCompleted, markTaskRetryable, markTaskFailed, deleteUsageLog } from '@/lib/db/queries'
 import { del } from '@vercel/blob'
 import type { GenerateTaskPayload, EditTaskPayload } from '@/lib/types'
 
@@ -19,6 +19,7 @@ async function executeTask(task: {
   userId: string
   type: 'generate' | 'edit'
   payload: string
+  result: string | null
   attempts: number
   maxAttempts: number
   usageLogId: string | null
@@ -26,6 +27,14 @@ async function executeTask(task: {
   let tempSourceUrls: string[] = []
 
   try {
+    // Idempotency: if task already has a result (prior attempt succeeded at insertImage
+    // but failed at markTaskCompleted), skip re-execution and just mark completed
+    if (task.result) {
+      const existing = JSON.parse(task.result) as { imageId: string; blobUrl: string }
+      await markTaskCompleted(task.id, existing)
+      return
+    }
+
     if (task.type === 'generate') {
       const payload = JSON.parse(task.payload) as GenerateTaskPayload
       const imageBuffer = await generateImage(payload.prompt, payload.aspectRatio, payload.quality)
@@ -41,14 +50,21 @@ async function executeTask(task: {
         sizeBytes: imageBuffer.length,
       })
 
-      await markTaskCompleted(task.id, { imageId: record.id, blobUrl: url })
+      // Save result immediately for idempotency — if markTaskCompleted crashes,
+      // the result is preserved and the retry path (task.result check) will skip re-execution
+      const taskResult = { imageId: record.id, blobUrl: url }
+      await saveTaskResult(task.id, taskResult)
+      await markTaskCompleted(task.id, taskResult)
     } else {
       const payload = JSON.parse(task.payload) as EditTaskPayload
       tempSourceUrls = payload.sourceImageUrls
 
       const imageBuffers: Buffer[] = []
       for (const sourceUrl of payload.sourceImageUrls) {
-        const response = await fetch(sourceUrl)
+        const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(30_000) })
+        if (!response.ok) {
+          throw new Error(`Failed to fetch source image: ${response.status}`)
+        }
         const arrayBuffer = await response.arrayBuffer()
         imageBuffers.push(Buffer.from(arrayBuffer))
       }
@@ -65,7 +81,9 @@ async function executeTask(task: {
         sourceImages: JSON.stringify(payload.sourceImageUrls.map((_, i) => `source-${i}.png`)),
       })
 
-      await markTaskCompleted(task.id, { imageId: record.id, blobUrl: url })
+      const taskResult = { imageId: record.id, blobUrl: url }
+      await saveTaskResult(task.id, taskResult)
+      await markTaskCompleted(task.id, taskResult)
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

@@ -315,6 +315,19 @@ export async function claimNextTask(): Promise<typeof tasks.$inferSelect | null>
   }
 }
 
+export async function saveTaskResult(
+  taskId: string,
+  result: { imageId: string; blobUrl: string }
+): Promise<void> {
+  await db
+    .update(tasks)
+    .set({
+      result: JSON.stringify(result),
+      updatedAt: new Date(),
+    })
+    .where(eq(tasks.id, taskId))
+}
+
 export async function markTaskCompleted(
   taskId: string,
   result: { imageId: string; blobUrl: string }
