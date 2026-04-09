@@ -3,7 +3,6 @@
 import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
 import { createTask, recordUsageReturningId } from '@/lib/db/queries'
-import { after } from 'next/server'
 import { triggerWorker } from '@/lib/trigger-worker'
 import type { ActionResult } from '@/lib/types'
 
@@ -66,7 +65,7 @@ export async function generateImageAction(
       usageLogId,
     })
 
-    after(async () => { await triggerWorker() })
+    await triggerWorker()
 
     return { success: true, data: { taskId } }
   } catch {

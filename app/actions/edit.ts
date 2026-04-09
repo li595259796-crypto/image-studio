@@ -3,7 +3,6 @@
 import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
 import { createTask, recordUsageReturningId } from '@/lib/db/queries'
-import { after } from 'next/server'
 import { triggerWorker } from '@/lib/trigger-worker'
 import { put } from '@vercel/blob'
 import { fileTypeFromBuffer } from 'file-type'
@@ -110,7 +109,7 @@ export async function editImageAction(
       usageLogId,
     })
 
-    after(async () => { await triggerWorker() })
+    await triggerWorker()
 
     return { success: true, data: { taskId } }
   } catch {

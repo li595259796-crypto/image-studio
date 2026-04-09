@@ -3,7 +3,6 @@
 import { auth } from '@/lib/auth'
 import { getTaskById, getRecentPendingTaskByType, resetTaskForRetry, recordUsageReturningId } from '@/lib/db/queries'
 import { checkQuota } from '@/lib/quota'
-import { after } from 'next/server'
 import { triggerWorker } from '@/lib/trigger-worker'
 import type { ActionResult, TaskStatusResult } from '@/lib/types'
 
@@ -35,9 +34,9 @@ export async function getTaskStatus(
       return { success: false, error: 'Task not found' }
     }
 
-    // Hobby fallback: re-kick worker if task appears stuck (no recoverZombieTasks here — cron handles that)
+    // Hobby fallback: re-kick worker if task appears stuck
     if (shouldReKick(task)) {
-      after(async () => { await triggerWorker() })
+      await triggerWorker()
     }
 
     const parsed = task.result ? JSON.parse(task.result) as { imageId: string; blobUrl: string } : undefined
@@ -73,7 +72,7 @@ export async function getRecentPendingTask(
     }
 
     if (shouldReKick(task)) {
-      after(async () => { await triggerWorker() })
+      await triggerWorker()
     }
 
     return {
@@ -127,7 +126,7 @@ export async function retryTaskAction(
 
     const usageLogId = await recordUsageReturningId(session.user.id, task.type as 'generate' | 'edit')
     await resetTaskForRetry(taskId, usageLogId)
-    after(async () => { await triggerWorker() })
+    await triggerWorker()
 
     return { success: true, data: { taskId } }
   } catch {
