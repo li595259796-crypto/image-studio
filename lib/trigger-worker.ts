@@ -5,7 +5,7 @@ export function triggerWorker(): void {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.WORKER_SECRET ?? ''}` },
     signal: AbortSignal.timeout(1000),
-  }).catch(() => {
-    // Silent: cron or poll-time re-kick will handle it
+  }).catch((err: unknown) => {
+    console.error('[trigger-worker] Failed to kick worker:', err instanceof Error ? err.message : err)
   })
 }

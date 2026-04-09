@@ -61,6 +61,10 @@ async function executeTask(task: {
 
       const imageBuffers: Buffer[] = []
       for (const sourceUrl of payload.sourceImageUrls) {
+        // SSRF guard: only fetch from Vercel Blob storage
+        if (!sourceUrl.startsWith('https://') || !sourceUrl.includes('.blob.vercel-storage.com/')) {
+          throw new Error('Rejected fetch to disallowed URL')
+        }
         const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(30_000) })
         if (!response.ok) {
           throw new Error(`Failed to fetch source image: ${response.status}`)
