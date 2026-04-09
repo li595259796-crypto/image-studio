@@ -66,7 +66,7 @@ export async function generateImageAction(
       usageLogId,
     })
 
-    after(() => triggerWorker())
+    after(async () => { await triggerWorker() })
 
     return { success: true, data: { taskId } }
   } catch {

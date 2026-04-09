@@ -37,7 +37,7 @@ export async function getTaskStatus(
 
     // Hobby fallback: re-kick worker if task appears stuck (no recoverZombieTasks here — cron handles that)
     if (shouldReKick(task)) {
-      after(() => triggerWorker())
+      after(async () => { await triggerWorker() })
     }
 
     const parsed = task.result ? JSON.parse(task.result) as { imageId: string; blobUrl: string } : undefined
@@ -73,7 +73,7 @@ export async function getRecentPendingTask(
     }
 
     if (shouldReKick(task)) {
-      after(() => triggerWorker())
+      after(async () => { await triggerWorker() })
     }
 
     return {
@@ -127,7 +127,7 @@ export async function retryTaskAction(
 
     const usageLogId = await recordUsageReturningId(session.user.id, task.type as 'generate' | 'edit')
     await resetTaskForRetry(taskId, usageLogId)
-    after(() => triggerWorker())
+    after(async () => { await triggerWorker() })
 
     return { success: true, data: { taskId } }
   } catch {

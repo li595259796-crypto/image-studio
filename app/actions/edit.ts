@@ -110,7 +110,7 @@ export async function editImageAction(
       usageLogId,
     })
 
-    after(() => triggerWorker())
+    after(async () => { await triggerWorker() })
 
     return { success: true, data: { taskId } }
   } catch {
