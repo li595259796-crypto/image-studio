@@ -90,7 +90,20 @@ async function executeTask(task: {
       await markTaskCompleted(task.id, taskResult)
     }
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const rawMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[task-worker] Task failed', { taskId: task.id, type: task.type, error: rawMessage })
+
+    // Sanitize error for user-facing lastError.
+    const normalizedMessage = rawMessage.toLowerCase()
+    let errorMessage = 'Image processing failed'
+    if (normalizedMessage.includes('timeout') || normalizedMessage.includes('abort')) {
+      errorMessage = 'Processing timed out, will retry'
+    } else if (normalizedMessage.includes('source image')) {
+      errorMessage = 'Failed to load source image'
+    } else if (normalizedMessage.includes('quota') || normalizedMessage.includes('rate')) {
+      errorMessage = 'API rate limit reached, will retry'
+    }
+
     const nextAttempts = task.attempts + 1
 
     if (nextAttempts < task.maxAttempts) {
