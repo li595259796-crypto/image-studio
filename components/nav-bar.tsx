@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Wand2, ImagePlus, Images, LogOut, Settings, ArrowUpCircle } from 'lucide-react'
 import { LanguageToggle } from '@/components/language-toggle'
@@ -41,6 +41,7 @@ function getInitials(email: string, displayName?: string): string {
 
 export function NavBar({ user, quota }: NavBarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { dictionary } = useLocale()
 
   const navLinks = [
@@ -106,14 +107,14 @@ export function NavBar({ user, quota }: NavBarProps) {
               </DropdownMenuLabel>
               <DropdownMenuItem
                 className="cursor-pointer"
-                onClick={() => { window.location.href = '/settings' }}
+                onClick={() => { router.push('/settings') }}
               >
                 <Settings className="size-4" />
                 {dictionary.nav.settings}
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="cursor-pointer"
-                onClick={() => { window.location.href = '/upgrade' }}
+                onClick={() => { router.push('/upgrade') }}
               >
                 <ArrowUpCircle className="size-4" />
                 {dictionary.nav.upgrade}

@@ -18,22 +18,28 @@ export default async function DashboardLayout({
 
   const userId = session.user.id!
 
+  // Single guarded block for all DB reads
+  let profile: { name: string | null; email: string; image: string | null; locale: string } | null = null
   let quota = { dailyUsed: 0, dailyLimit: 10 }
+
   try {
-    const quotaInfo = await getQuotaInfo(userId)
+    const [profileResult, quotaInfo] = await Promise.all([
+      getUserProfile(userId),
+      getQuotaInfo(userId),
+    ])
+    profile = profileResult
     quota = { dailyUsed: quotaInfo.dailyUsed, dailyLimit: quotaInfo.dailyLimit }
   } catch {
-    // Fall back to defaults if quota check fails
+    // Fall back to session data if DB is unavailable
   }
-
-  const profile = await getUserProfile(userId)
 
   const userInfo = {
     email: profile?.email ?? session.user.email ?? '',
     displayName: profile?.name ?? undefined,
   }
 
-  const dbLocale = (profile?.locale as Locale) ?? 'zh'
+  const rawLocale = profile?.locale
+  const dbLocale: Locale = rawLocale === 'en' || rawLocale === 'zh' ? rawLocale : 'zh'
 
   return (
     <div className="flex min-h-screen flex-col">
