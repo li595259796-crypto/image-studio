@@ -1,6 +1,7 @@
 'use server'
 
 import { auth } from '@/lib/auth'
+import { checkQuota } from '@/lib/quota'
 
 const API_KEY = process.env.IMAGE_API_KEY ?? ''
 const API_URL = process.env.IMAGE_API_URL ?? 'https://147ai.com/v1/chat/completions'
@@ -25,6 +26,21 @@ export async function chatRefine(
   const session = await auth()
   if (!session?.user?.id) {
     return { success: false, error: 'Authentication required' }
+  }
+
+  const VALID_SCENARIO_IDS = new Set(['product', 'cover', 'poster', 'portrait', 'illustration', 'freeform'])
+  if (!VALID_SCENARIO_IDS.has(scenarioId)) {
+    return { success: false, error: 'Invalid scenario' }
+  }
+
+  const MAX_DESCRIPTION_LENGTH = 2000
+  if (userDescription.length > MAX_DESCRIPTION_LENGTH) {
+    return { success: false, error: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` }
+  }
+
+  const quota = await checkQuota(session.user.id)
+  if (!quota.allowed) {
+    return { success: false, error: 'Quota exceeded' }
   }
 
   if (!API_KEY) {
@@ -85,8 +101,9 @@ export async function chatRefine(
     }
 
     return { success: true, refined: content }
-  } catch {
-    return { success: false, error: 'Refinement request timed out' }
+  } catch (err) {
+    const isTimeout = err instanceof Error && err.name === 'AbortError'
+    return { success: false, error: isTimeout ? 'Refinement request timed out' : 'Refinement request failed' }
   } finally {
     clearTimeout(timeoutId)
   }
