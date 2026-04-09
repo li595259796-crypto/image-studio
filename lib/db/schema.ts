@@ -66,9 +66,9 @@ export const sessions = pgTable('sessions', {
 // ============================================================
 export const images = pgTable('images', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('userId')
+  userId: uuid('userId')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: 'cascade' }),
   type: text('type').$type<'generate' | 'edit'>().notNull(),
   prompt: text('prompt').notNull(),
   aspectRatio: text('aspectRatio'),
@@ -84,9 +84,9 @@ export const images = pgTable('images', {
 // ============================================================
 export const usageLogs = pgTable('usageLogs', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('userId')
+  userId: uuid('userId')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: 'cascade' }),
   action: text('action').$type<'generate' | 'edit'>().notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 })
