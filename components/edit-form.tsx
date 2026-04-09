@@ -1,12 +1,13 @@
 'use client'
 
 import { useRef, useState, useTransition, useEffect, useCallback } from 'react'
-import { ImagePlus, X, Download, Loader2, Upload } from 'lucide-react'
+import { ImagePlus, X, Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { editImageAction } from '@/app/actions/edit'
+import { PostActions } from '@/components/post-actions'
 import type { ActionResult } from '@/lib/types'
 
 interface EditResult {
@@ -26,6 +27,7 @@ export function EditForm() {
   const [result, setResult] = useState<ActionResult<EditResult> | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [prompt, setPrompt] = useState('')
 
   useEffect(() => {
     if (!isPending) return
@@ -78,17 +80,18 @@ export function EditForm() {
     }
   }
 
-  async function handleDownload(url: string, filename: string) {
-    const response = await fetch(url)
-    const blob = await response.blob()
-    const blobUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = blobUrl
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(blobUrl)
+  function handleRetry() {
+    setResult(null)
+    setElapsed(0)
+    const formData = new FormData()
+    formData.set('prompt', prompt)
+    if (files[0]) formData.set('image1', files[0].file)
+    if (files[1]) formData.set('image2', files[1].file)
+
+    startTransition(async () => {
+      const res = await editImageAction(formData)
+      setResult(res)
+    })
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -190,6 +193,8 @@ export function EditForm() {
           <Textarea
             id="edit-prompt"
             name="prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe the edits you want to make..."
             className="min-h-28 resize-none"
             required
@@ -227,20 +232,17 @@ export function EditForm() {
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={result.data.imageUrl}
-              alt="Edited image"
-              className="w-full object-contain"
-            />
+            <img src={result.data.imageUrl} alt="Edited image" className="w-full object-contain" />
           </div>
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => handleDownload(result.data!.imageUrl, `edited-${result.data!.imageId}.png`)}
-          >
-            <Download className="size-4" />
-            Download
-          </Button>
+          <PostActions
+            imageUrl={result.data.imageUrl}
+            imageId={result.data.imageId}
+            prompt={prompt}
+            isUploadType={true}
+            editIntent="保留主体，优化背景和光线"
+            onRetry={handleRetry}
+            retrying={isPending}
+          />
         </div>
       )}
     </div>
