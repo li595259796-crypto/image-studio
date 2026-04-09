@@ -8,6 +8,11 @@ export default auth((req) => {
   const { nextUrl } = req
   const isLoggedIn = !!req.auth
 
+  // Skip root path — let page.tsx handle it
+  if (nextUrl.pathname === '/') {
+    return NextResponse.next()
+  }
+
   const isProtected = protectedRoutes.some((route) =>
     nextUrl.pathname.startsWith(route)
   )

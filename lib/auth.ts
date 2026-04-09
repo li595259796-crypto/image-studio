@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs'
 // The adapter handles user/session/account storage in Vercel Postgres via Drizzle
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   adapter: DrizzleAdapter(db),
   providers: [
     Credentials({
