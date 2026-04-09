@@ -32,3 +32,23 @@ export interface ActionResult<T = unknown> {
     monthlyLimit: number
   }
 }
+
+export interface TaskStatusResult {
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  result?: { imageId: string; blobUrl: string }
+  error?: string
+  attempts: number
+  maxAttempts: number
+  createdAt: string
+}
+
+export interface GenerateTaskPayload {
+  prompt: string
+  aspectRatio: string
+  quality: string
+}
+
+export interface EditTaskPayload {
+  prompt: string
+  sourceImageUrls: string[]
+}
