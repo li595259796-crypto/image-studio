@@ -37,8 +37,8 @@ export function PendingTaskBanner({ taskType, onTaskFound }: PendingTaskBannerPr
       <Loader2 className="size-4 animate-spin text-primary" />
       <span>
         {locale === 'zh'
-          ? `有一个任务正在${polling.status === 'pending' ? '排队' : '生成'}中... ${polling.elapsed}s`
-          : `A task is ${polling.status === 'pending' ? 'queued' : 'generating'}... ${polling.elapsed}s`}
+          ? `有一个任务正在生成中... ${polling.elapsed}s`
+          : `A task is generating... ${polling.elapsed}s`}
       </span>
     </div>
   )

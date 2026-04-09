@@ -33,18 +33,7 @@ export function TaskStatus({
 }: TaskStatusProps) {
   const { locale } = useLocale()
 
-  if (status === 'pending') {
-    return (
-      <div className="flex flex-col items-center gap-3 rounded-xl border bg-muted/50 p-8 text-center">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          {locale === 'zh' ? '排队中...' : 'Queued...'}
-        </p>
-      </div>
-    )
-  }
-
-  if (status === 'processing') {
+  if (status === 'pending' || status === 'processing') {
     return (
       <div className="flex flex-col items-center gap-3 rounded-xl border bg-muted/50 p-8 text-center">
         <Loader2 className="size-8 animate-spin text-primary" />
