@@ -7,6 +7,7 @@ export async function uploadImage(
   const filename = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.png`
 
   const blob = await put(filename, imageBuffer, {
+    access: 'private',
     contentType: 'image/png',
   })
 
