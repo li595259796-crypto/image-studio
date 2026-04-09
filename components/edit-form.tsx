@@ -10,15 +10,17 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { editImageAction } from '@/app/actions/edit'
+import { retryTaskAction } from '@/app/actions/tasks'
 import { useLocale } from '@/components/locale-provider'
 import { showQuotaError } from '@/lib/error-toast'
-import { PostActions } from '@/components/post-actions'
+import { TaskStatus } from '@/components/task-status'
+import { PendingTaskBanner } from '@/components/pending-task-banner'
+import { useTaskPolling } from '@/hooks/use-task-polling'
 import { getPreloadableSourceUrl } from '@/lib/edit-source'
 import type { ActionResult } from '@/lib/types'
 
-interface EditResult {
-  imageUrl: string
-  imageId: string
+interface SubmitResult {
+  taskId: string
 }
 
 interface UploadedFile {
@@ -32,8 +34,9 @@ export function EditForm() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
   const [files, setFiles] = useState<UploadedFile[]>([])
-  const [result, setResult] = useState<ActionResult<EditResult> | null>(null)
-  const [elapsed, setElapsed] = useState(0)
+  const [submitResult, setSubmitResult] = useState<ActionResult<SubmitResult> | null>(null)
+  const [taskId, setTaskId] = useState<string | null>(null)
+  const polling = useTaskPolling(taskId)
   const [isDragging, setIsDragging] = useState(false)
   const [isPreloadingSource, setIsPreloadingSource] = useState(false)
   const [prompt, setPrompt] = useState('')
@@ -45,15 +48,6 @@ export function EditForm() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
-
-  useEffect(() => {
-    if (!isPending) return
-    const start = Date.now()
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - start) / 1000))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [isPending])
 
   useEffect(() => {
     return () => {
@@ -155,26 +149,19 @@ export function EditForm() {
   }
 
   function handleRetry() {
-    setResult(null)
-    setElapsed(0)
-    const formData = new FormData()
-    formData.set('prompt', prompt)
-    if (files[0]) formData.set('image1', files[0].file)
-    if (files[1]) formData.set('image2', files[1].file)
-
+    if (!taskId) return
     startTransition(async () => {
-      const res = await editImageAction(formData)
+      const res = await retryTaskAction(taskId)
       if (res.errorCode === 'quota_exceeded' && res.quota) {
         showQuotaError(locale, res.quota)
         return
       }
-      setResult(res)
+      if (res.success && res.data) setTaskId(res.data.taskId)
     })
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setElapsed(0)
     const formData = new FormData(e.currentTarget)
 
     if (files[0]) {
@@ -190,12 +177,14 @@ export function EditForm() {
         showQuotaError(locale, res.quota)
         return
       }
-      setResult(res)
+      setSubmitResult(res)
+      if (res.success && res.data) setTaskId(res.data.taskId)
     })
   }
 
   return (
     <div className="space-y-6">
+      <PendingTaskBanner taskType="edit" onTaskFound={setTaskId} />
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
           <Label>Images (1-2)</Label>
@@ -301,7 +290,7 @@ export function EditForm() {
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Editing... {elapsed}s
+              Editing...
             </>
           ) : (
             <>
@@ -312,28 +301,26 @@ export function EditForm() {
         </Button>
       </form>
 
-      {result && !result.success && result.errorCode !== 'quota_exceeded' && (
+      {submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded' && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {result.error}
+          {submitResult.error}
         </div>
       )}
 
-      {result?.success && result.data && (
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl border">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={result.data.imageUrl} alt="Edited image" className="w-full object-contain" />
-          </div>
-          <PostActions
-            imageUrl={result.data.imageUrl}
-            imageId={result.data.imageId}
-            prompt={prompt}
-            isUploadType={true}
-            editIntent="保留主体，优化背景和光线"
-            onRetry={handleRetry}
-            retrying={isPending}
-          />
-        </div>
+      {taskId && polling.status && (
+        <TaskStatus
+          status={polling.status}
+          result={polling.result}
+          error={polling.error}
+          elapsed={polling.elapsed}
+          attempts={polling.attempts}
+          maxAttempts={polling.maxAttempts}
+          prompt={prompt}
+          isUploadType={true}
+          editIntent="保留主体，优化背景和光线"
+          onRetry={handleRetry}
+          retrying={isPending}
+        />
       )}
     </div>
   )
