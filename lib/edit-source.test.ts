@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
+// @ts-expect-error Direct .ts import keeps node --test working in this repo.
 import { getPreloadableSourceUrl } from './edit-source.ts'
 
 test('returns https source url when there are no uploaded files', () => {
