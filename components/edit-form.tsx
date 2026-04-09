@@ -6,9 +6,11 @@ import { ImagePlus, X, Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { editImageAction } from '@/app/actions/edit'
 import { PostActions } from '@/components/post-actions'
+import { getPreloadableSourceUrl } from '@/lib/edit-source'
 import type { ActionResult } from '@/lib/types'
 
 interface EditResult {
@@ -29,6 +31,7 @@ export function EditForm() {
   const [result, setResult] = useState<ActionResult<EditResult> | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [isPreloadingSource, setIsPreloadingSource] = useState(false)
   const [prompt, setPrompt] = useState('')
 
   useEffect(() => {
@@ -56,22 +59,76 @@ export function EditForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const addFiles = useCallback((newFiles: FileList | File[]) => {
-    setFiles((prev) => {
-      const incoming = Array.from(newFiles)
-        .filter((f) => f.type.startsWith('image/'))
-        .slice(0, 2 - prev.length)
+  const addFiles = useCallback(
+    (newFiles: FileList | File[], options?: { onlyIfEmpty?: boolean }) => {
+      setFiles((prev) => {
+        if (options?.onlyIfEmpty && prev.length > 0) {
+          return prev
+        }
 
-      if (incoming.length === 0) return prev
+        const incoming = Array.from(newFiles)
+          .filter((f) => f.type.startsWith('image/'))
+          .slice(0, 2 - prev.length)
 
-      const uploaded: UploadedFile[] = incoming.map((file) => ({
-        file,
-        preview: URL.createObjectURL(file),
-      }))
+        if (incoming.length === 0) return prev
 
-      return [...prev, ...uploaded].slice(0, 2)
-    })
-  }, [])
+        const uploaded: UploadedFile[] = incoming.map((file) => ({
+          file,
+          preview: URL.createObjectURL(file),
+        }))
+
+        return [...prev, ...uploaded].slice(0, 2)
+      })
+    },
+    []
+  )
+
+  useEffect(() => {
+    const sourceUrl = getPreloadableSourceUrl(searchParams.get('sourceUrl'), files.length)
+
+    if (!sourceUrl) {
+      return
+    }
+
+    const preloadSourceUrl = sourceUrl
+    let cancelled = false
+
+    async function loadSource() {
+      setIsPreloadingSource(true)
+
+      try {
+        const response = await fetch(preloadSourceUrl)
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch source image')
+        }
+
+        const blob = await response.blob()
+
+        if (cancelled) {
+          return
+        }
+
+        const file = new File([blob], 'source.png', {
+          type: blob.type || 'image/png',
+        })
+
+        addFiles([file], { onlyIfEmpty: true })
+      } catch {
+        // Silent fallback: users can still upload manually.
+      } finally {
+        if (!cancelled) {
+          setIsPreloadingSource(false)
+        }
+      }
+    }
+
+    void loadSource()
+
+    return () => {
+      cancelled = true
+    }
+  }, [addFiles, files.length, searchParams])
 
   function removeFile(index: number) {
     setFiles((prev) => {
@@ -144,15 +201,23 @@ export function EditForm() {
             )}
           >
             {files.length === 0 ? (
-              <>
-                <Upload className="size-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Drop images here or click to upload
-                </p>
-                <p className="text-xs text-muted-foreground/70">
-                  PNG, JPG, WebP up to 10MB
-                </p>
-              </>
+              isPreloadingSource ? (
+                <div className="flex w-full max-w-sm flex-col items-center gap-3 text-center">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Loading source image...</p>
+                  <Skeleton className="h-28 w-full rounded-lg" />
+                </div>
+              ) : (
+                <>
+                  <Upload className="size-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Drop images here or click to upload
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    PNG, JPG, WebP up to 10MB
+                  </p>
+                </>
+              )
             ) : (
               <div className="flex gap-4">
                 {files.map((f, i) => (
