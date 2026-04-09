@@ -9,6 +9,7 @@ import { useLocale } from '@/components/locale-provider'
 import { copy } from '@/lib/i18n'
 import { getScenario } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
+import { showQuotaError } from '@/lib/error-toast'
 import { PostActions } from '@/components/post-actions'
 import { RefineDialog } from '@/components/refine-dialog'
 import type { ActionResult } from '@/lib/types'
@@ -58,6 +59,10 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
 
     startTransition(async () => {
       const res = await generateImageAction(formData)
+      if (res.errorCode === 'quota_exceeded' && res.quota) {
+        showQuotaError(locale, res.quota)
+        return
+      }
       setResult(res)
     })
   }
@@ -72,6 +77,10 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
 
     startTransition(async () => {
       const res = await generateImageAction(formData)
+      if (res.errorCode === 'quota_exceeded' && res.quota) {
+        showQuotaError(locale, res.quota)
+        return
+      }
       setResult(res)
     })
   }
@@ -188,7 +197,7 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
         </Button>
       </form>
 
-      {result && !result.success && (
+      {result && !result.success && result.errorCode !== 'quota_exceeded' && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {result.error}
         </div>

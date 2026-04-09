@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { editImageAction } from '@/app/actions/edit'
+import { useLocale } from '@/components/locale-provider'
+import { showQuotaError } from '@/lib/error-toast'
 import { PostActions } from '@/components/post-actions'
 import { getPreloadableSourceUrl } from '@/lib/edit-source'
 import type { ActionResult } from '@/lib/types'
@@ -25,6 +27,7 @@ interface UploadedFile {
 
 export function EditForm() {
   const searchParams = useSearchParams()
+  const { locale } = useLocale()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
   const [files, setFiles] = useState<UploadedFile[]>([])
@@ -157,6 +160,10 @@ export function EditForm() {
 
     startTransition(async () => {
       const res = await editImageAction(formData)
+      if (res.errorCode === 'quota_exceeded' && res.quota) {
+        showQuotaError(locale, res.quota)
+        return
+      }
       setResult(res)
     })
   }
@@ -175,6 +182,10 @@ export function EditForm() {
 
     startTransition(async () => {
       const res = await editImageAction(formData)
+      if (res.errorCode === 'quota_exceeded' && res.quota) {
+        showQuotaError(locale, res.quota)
+        return
+      }
       setResult(res)
     })
   }
@@ -297,7 +308,7 @@ export function EditForm() {
         </Button>
       </form>
 
-      {result && !result.success && (
+      {result && !result.success && result.errorCode !== 'quota_exceeded' && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {result.error}
         </div>

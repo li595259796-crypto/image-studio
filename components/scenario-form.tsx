@@ -11,6 +11,7 @@ import { copy } from '@/lib/i18n'
 import { getScenario, buildPrompt, type ScenarioId } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
 import { editImageAction } from '@/app/actions/edit'
+import { showQuotaError } from '@/lib/error-toast'
 import { PostActions } from '@/components/post-actions'
 import { RefineDialog } from '@/components/refine-dialog'
 import type { ActionResult } from '@/lib/types'
@@ -108,6 +109,10 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
       if (files[0]) formData.set('image1', files[0].file)
       startTransition(async () => {
         const res = await editImageAction(formData)
+        if (res.errorCode === 'quota_exceeded' && res.quota) {
+          showQuotaError(locale, res.quota)
+          return
+        }
         setResult(res)
       })
     } else {
@@ -115,6 +120,10 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
       formData.set('quality', quality)
       startTransition(async () => {
         const res = await generateImageAction(formData)
+        if (res.errorCode === 'quota_exceeded' && res.quota) {
+          showQuotaError(locale, res.quota)
+          return
+        }
         setResult(res)
       })
     }
@@ -304,7 +313,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
       />
 
       {/* Error display */}
-      {result && !result.success && (
+      {result && !result.success && result.errorCode !== 'quota_exceeded' && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {result.error}
         </div>
