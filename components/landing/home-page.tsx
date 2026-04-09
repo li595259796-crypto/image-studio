@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Sparkles, ArrowRight } from 'lucide-react'
+import { ArrowRight, Sparkles } from 'lucide-react'
 import { LanguageToggle } from '@/components/language-toggle'
 import { useLocale } from '@/components/locale-provider'
 import { buttonVariants } from '@/components/ui/button'
@@ -104,17 +104,20 @@ export function LandingPage() {
             </Link>
 
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-foreground/55">
-              <Link href="/terms" className="transition-colors hover:text-foreground">
+              <Link
+                href="/terms"
+                className="transition-colors hover:text-foreground"
+              >
                 {dictionary.legal.termsLink}
               </Link>
-              <span aria-hidden="true">·</span>
+              <span aria-hidden="true">|</span>
               <Link
                 href="/privacy"
                 className="transition-colors hover:text-foreground"
               >
                 {dictionary.legal.privacyLink}
               </Link>
-              <span aria-hidden="true">·</span>
+              <span aria-hidden="true">|</span>
               <span>{dictionary.legal.footerCopyright}</span>
             </div>
           </section>

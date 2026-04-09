@@ -29,6 +29,7 @@ function getInitials(email: string, displayName?: string): string {
   if (displayName) {
     return displayName
       .split(' ')
+      .filter(Boolean)
       .map((n) => n[0])
       .join('')
       .toUpperCase()
