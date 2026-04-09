@@ -1,29 +1,23 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { editImage } from '@/lib/image-api'
-import { uploadImage, deleteImage } from '@/lib/storage'
-import { checkQuota, recordUsage } from '@/lib/quota'
-import { insertImage } from '@/lib/db/queries'
+import { checkQuota } from '@/lib/quota'
+import { createTask, recordUsageReturningId } from '@/lib/db/queries'
+import { triggerWorker } from '@/lib/trigger-worker'
+import { put } from '@vercel/blob'
 import type { ActionResult } from '@/lib/types'
 
-interface EditResult {
-  imageUrl: string
-  imageId: string
-}
-
-async function fileToBuffer(file: File): Promise<Buffer> {
-  const arrayBuffer = await file.arrayBuffer()
-  return Buffer.from(arrayBuffer)
+interface SubmitResult {
+  taskId: string
 }
 
 export async function editImageAction(
   formData: FormData
-): Promise<ActionResult<EditResult>> {
+): Promise<ActionResult<SubmitResult>> {
   try {
     const session = await auth()
     if (!session?.user?.id) {
-      return { success: false, error: 'Authentication required' }
+      return { success: false, error: 'Authentication required', errorCode: 'auth_required' }
     }
 
     const prompt = formData.get('prompt') as string | null
@@ -43,7 +37,7 @@ export async function editImageAction(
       return { success: false, error: 'At least one image is required' }
     }
 
-    const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
+    const MAX_SIZE = 10 * 1024 * 1024
     const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 
     if (image1.size > MAX_SIZE) {
@@ -76,49 +70,39 @@ export async function editImageAction(
       }
     }
 
-    const imageBuffers: Buffer[] = [await fileToBuffer(image1)]
+    const tempId = crypto.randomUUID()
+    const sourceImageUrls: string[] = []
+
+    const buffer1 = Buffer.from(await image1.arrayBuffer())
+    const blob1 = await put(`temp/${session.user.id}/${tempId}/source-0.png`, buffer1, {
+      access: 'public',
+      contentType: image1.type,
+    })
+    sourceImageUrls.push(blob1.url)
+
     if (image2 && image2.size > 0) {
-      imageBuffers.push(await fileToBuffer(image2))
+      const buffer2 = Buffer.from(await image2.arrayBuffer())
+      const blob2 = await put(`temp/${session.user.id}/${tempId}/source-1.png`, buffer2, {
+        access: 'public',
+        contentType: image2.type,
+      })
+      sourceImageUrls.push(blob2.url)
     }
 
-    const sourceImageNames = [image1.name]
-    if (image2 && image2.size > 0) {
-      sourceImageNames.push(image2.name)
-    }
-
-    const resultBuffer = await editImage(prompt, imageBuffers)
-
-    const { url } = await uploadImage(session.user.id, resultBuffer)
-
-    const record = await insertImage({
+    const usageLogId = await recordUsageReturningId(session.user.id, 'edit')
+    const payload = JSON.stringify({ prompt, sourceImageUrls })
+    const taskId = await createTask({
       userId: session.user.id,
       type: 'edit',
-      prompt,
-      blobUrl: url,
-      sizeBytes: resultBuffer.length,
-      sourceImages: JSON.stringify(sourceImageNames),
+      payload,
+      usageLogId,
     })
 
-    // If DB insert failed but upload succeeded, clean up
-    if (!record) {
-      await deleteImage(url)
-      return { success: false, error: 'Failed to save image record' }
-    }
+    triggerWorker()
 
-    await recordUsage(session.user.id, 'edit')
-
-    return {
-      success: true,
-      data: { imageUrl: url, imageId: record.id },
-    }
+    return { success: true, data: { taskId } }
   } catch (error: unknown) {
-    const isUserFacing =
-      error instanceof Error &&
-      !error.message.includes('database') &&
-      !error.message.includes('blob')
-    const message = isUserFacing
-      ? (error as Error).message
-      : 'Failed to edit image. Please try again.'
+    const message = error instanceof Error ? error.message : 'Failed to submit task'
     return { success: false, error: message }
   }
 }
