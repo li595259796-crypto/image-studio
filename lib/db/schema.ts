@@ -22,6 +22,7 @@ export const users = pgTable('users', {
   role: text('role').default('user').notNull(),
   dailyQuota: integer('dailyQuota').default(10).notNull(),
   monthlyQuota: integer('monthlyQuota').default(200).notNull(),
+  locale: text('locale').default('zh').notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 })
 
