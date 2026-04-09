@@ -5,6 +5,7 @@ import {
   integer,
   uuid,
   primaryKey,
+  boolean,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import type { AdapterAccountType } from 'next-auth/adapters'
@@ -77,6 +78,7 @@ export const images = pgTable('images', {
   blobUrl: text('blobUrl').notNull(),
   sizeBytes: integer('sizeBytes'),
   sourceImages: text('sourceImages'),
+  isFavorite: boolean('isFavorite').default(false).notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 })
 

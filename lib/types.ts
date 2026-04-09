@@ -8,6 +8,7 @@ export interface ImageRecord {
   blobUrl: string
   sizeBytes: number | null
   sourceImages: string | null
+  isFavorite: boolean
   createdAt: Date
 }
 
