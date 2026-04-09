@@ -1,35 +1,34 @@
-import { auth } from '@/lib/auth'
 import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 const protectedRoutes = ['/generate', '/edit', '/gallery']
 const authRoutes = ['/login', '/signup']
 
-export default auth((req) => {
-  const { nextUrl } = req
-  const isLoggedIn = !!req.auth
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
+  const sessionToken =
+    req.cookies.get('authjs.session-token')?.value ||
+    req.cookies.get('__Secure-authjs.session-token')?.value
 
-  // Skip root path — let page.tsx handle it
-  if (nextUrl.pathname === '/') {
-    return NextResponse.next()
-  }
+  const isLoggedIn = !!sessionToken
 
   const isProtected = protectedRoutes.some((route) =>
-    nextUrl.pathname.startsWith(route)
+    pathname.startsWith(route)
   )
   const isAuthRoute = authRoutes.some((route) =>
-    nextUrl.pathname.startsWith(route)
+    pathname.startsWith(route)
   )
 
   if (isProtected && !isLoggedIn) {
-    return NextResponse.redirect(new URL('/login', nextUrl))
+    return NextResponse.redirect(new URL('/login', req.url))
   }
 
   if (isAuthRoute && isLoggedIn) {
-    return NextResponse.redirect(new URL('/generate', nextUrl))
+    return NextResponse.redirect(new URL('/generate', req.url))
   }
 
   return NextResponse.next()
-})
+}
 
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
