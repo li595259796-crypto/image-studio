@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { Wand2, ImagePlus, Images, LogOut } from 'lucide-react'
+import { Wand2, ImagePlus, Images, LogOut, Settings, ArrowUpCircle } from 'lucide-react'
 import { LanguageToggle } from '@/components/language-toggle'
+import { updateLocaleAction } from '@/app/actions/settings'
 import { useLocale } from '@/components/locale-provider'
 import { BRAND_NAME } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -83,7 +84,7 @@ export function NavBar({ user, quota }: NavBarProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <LanguageToggle className="hidden sm:inline-flex" />
+          <LanguageToggle className="hidden sm:inline-flex" onPersist={updateLocaleAction} />
           <QuotaBadge
             dailyUsed={quota.dailyUsed}
             dailyLimit={quota.dailyLimit}
@@ -103,6 +104,20 @@ export function NavBar({ user, quota }: NavBarProps) {
               <DropdownMenuLabel>
                 {user.displayName ?? user.email}
               </DropdownMenuLabel>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => { window.location.href = '/settings' }}
+              >
+                <Settings className="size-4" />
+                {dictionary.nav.settings}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => { window.location.href = '/upgrade' }}
+              >
+                <ArrowUpCircle className="size-4" />
+                {dictionary.nav.upgrade}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="cursor-pointer"

@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useLocale } from '@/components/locale-provider'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +11,7 @@ interface QuotaBadgeProps {
 }
 
 export function QuotaBadge({ dailyUsed, dailyLimit }: QuotaBadgeProps) {
+  const router = useRouter()
   const { dictionary } = useLocale()
   const percentage = dailyLimit > 0 ? (dailyUsed / dailyLimit) * 100 : 0
 
@@ -21,11 +23,13 @@ export function QuotaBadge({ dailyUsed, dailyLimit }: QuotaBadgeProps) {
         : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
 
   return (
-    <Badge
-      variant="outline"
-      className={cn('border-none text-xs font-medium', colorClass)}
-    >
-      {dailyUsed}/{dailyLimit} {dictionary.nav.quotaToday}
-    </Badge>
+    <button type="button" onClick={() => router.push('/upgrade')} className="cursor-pointer">
+      <Badge
+        variant="outline"
+        className={cn('border-none text-xs font-medium', colorClass)}
+      >
+        {dailyUsed}/{dailyLimit} {dictionary.nav.quotaToday}
+      </Badge>
+    </button>
   )
 }
