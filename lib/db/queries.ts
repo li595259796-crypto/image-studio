@@ -12,6 +12,25 @@ export async function getUserById(userId: string) {
   return result[0] ?? null
 }
 
+export async function getUserProfile(userId: string) {
+  const result = await db
+    .select({
+      name: users.name,
+      email: users.email,
+      image: users.image,
+      locale: users.locale,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  return result[0] ?? null
+}
+
+export async function updateUserLocale(userId: string, locale: string) {
+  await db.update(users).set({ locale }).where(eq(users.id, userId))
+}
+
 export async function getQuotaInfo(userId: string): Promise<{
   dailyUsed: number
   dailyLimit: number
