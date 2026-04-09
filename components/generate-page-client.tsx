@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useLocale } from '@/components/locale-provider'
 import { copy } from '@/lib/i18n'
 import { ScenarioGrid } from '@/components/scenario-grid'
@@ -9,9 +10,17 @@ import { GenerateForm } from '@/components/generate-form'
 import type { ScenarioId } from '@/lib/scenarios'
 
 export function GeneratePageClient() {
+  const searchParams = useSearchParams()
   const [selectedScenario, setSelectedScenario] = useState<ScenarioId | null>(null)
   const { locale } = useLocale()
   const t = copy[locale].scenario
+
+  // Auto-select freeform if URL params indicate it (from Gallery "Copy to Generate")
+  useEffect(() => {
+    if (searchParams.get('mode') === 'freeform') {
+      setSelectedScenario('freeform')
+    }
+  }, [searchParams])
 
   function handleBack() {
     setSelectedScenario(null)
@@ -20,7 +29,12 @@ export function GeneratePageClient() {
   if (selectedScenario === 'freeform') {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
-        <GenerateForm onBack={handleBack} />
+        <GenerateForm
+          onBack={handleBack}
+          initialPrompt={searchParams.get('prompt') ?? undefined}
+          initialAspectRatio={searchParams.get('aspectRatio') ?? undefined}
+          initialQuality={searchParams.get('quality') ?? undefined}
+        />
       </div>
     )
   }

@@ -23,14 +23,17 @@ interface GenerateResult {
 
 interface GenerateFormProps {
   onBack?: () => void
+  initialPrompt?: string
+  initialAspectRatio?: string
+  initialQuality?: string
 }
 
-export function GenerateForm({ onBack }: GenerateFormProps) {
+export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initialQuality }: GenerateFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
-  const [prompt, setPrompt] = useState('')
-  const [aspectRatio, setAspectRatio] = useState<string>('16:9')
-  const [quality, setQuality] = useState<string>('2K')
+  const [prompt, setPrompt] = useState(initialPrompt ?? '')
+  const [aspectRatio, setAspectRatio] = useState<string>(initialAspectRatio ?? '16:9')
+  const [quality, setQuality] = useState<string>(initialQuality ?? '2K')
   const [result, setResult] = useState<ActionResult<GenerateResult> | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const { locale } = useLocale()

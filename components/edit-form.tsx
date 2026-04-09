@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ImagePlus, X, Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -21,6 +22,7 @@ interface UploadedFile {
 }
 
 export function EditForm() {
+  const searchParams = useSearchParams()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
   const [files, setFiles] = useState<UploadedFile[]>([])
@@ -28,6 +30,14 @@ export function EditForm() {
   const [elapsed, setElapsed] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [prompt, setPrompt] = useState('')
+
+  useEffect(() => {
+    const urlPrompt = searchParams.get('prompt')
+    if (urlPrompt && !prompt) {
+      setPrompt(urlPrompt)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   useEffect(() => {
     if (!isPending) return
