@@ -31,6 +31,8 @@ interface LocaleCopy {
     quotaToday: string
     localeZh: string
     localeEn: string
+    settings: string
+    upgrade: string
   }
   legal: {
     termsLink: string
@@ -110,6 +112,56 @@ interface LocaleCopy {
     copyPrompt: string
     continueEdit: string
   }
+  settings: {
+    pageTitle: string
+    profileSection: string
+    nameLabel: string
+    namePlaceholder: string
+    avatarLabel: string
+    avatarUpload: string
+    saveButton: string
+    saving: string
+    languageSection: string
+    languageLabel: string
+    securitySection: string
+    currentPassword: string
+    newPassword: string
+    confirmPassword: string
+    changePasswordButton: string
+    changingPassword: string
+    profileSuccess: string
+    passwordSuccess: string
+    passwordMismatch: string
+    passwordTooShort: string
+    currentPasswordWrong: string
+    localeSuccess: string
+    localeFailed: string
+  }
+  upgrade: {
+    pageTitle: string
+    pageDescription: string
+    currentPlan: string
+    contactUs: string
+    contactEmail: string
+    perMonth: string
+    perDay: string
+    features: {
+      dailyQuota: string
+      monthlyQuota: string
+      allScenarios: string
+      fourK: string
+      priorityQueue: string
+      basicScenarios: string
+    }
+  }
+  galleryFilter: {
+    all: string
+    today: string
+    last7Days: string
+    last30Days: string
+    favoritesOnly: string
+    timeRange: string
+  }
 }
 
 export const copy: Record<Locale, LocaleCopy> = {
@@ -144,6 +196,8 @@ export const copy: Record<Locale, LocaleCopy> = {
       quotaToday: '今日',
       localeZh: '中',
       localeEn: 'EN',
+      settings: '账户设置',
+      upgrade: '升级方案',
     },
     legal: {
       termsLink: '服务条款',
@@ -257,6 +311,56 @@ export const copy: Record<Locale, LocaleCopy> = {
       copyPrompt: '复制 Prompt',
       continueEdit: '继续编辑',
     },
+    settings: {
+      pageTitle: '账户设置',
+      profileSection: '基本信息',
+      nameLabel: '昵称',
+      namePlaceholder: '输入昵称',
+      avatarLabel: '头像',
+      avatarUpload: '上传新头像',
+      saveButton: '保存',
+      saving: '保存中...',
+      languageSection: '语言偏好',
+      languageLabel: '语言',
+      securitySection: '安全',
+      currentPassword: '当前密码',
+      newPassword: '新密码',
+      confirmPassword: '确认密码',
+      changePasswordButton: '修改密码',
+      changingPassword: '修改中...',
+      profileSuccess: '个人信息已更新',
+      passwordSuccess: '密码已修改',
+      passwordMismatch: '两次密码不一致',
+      passwordTooShort: '密码至少 8 位',
+      currentPasswordWrong: '当前密码错误',
+      localeSuccess: '语言偏好已保存',
+      localeFailed: '语言切换失败',
+    },
+    upgrade: {
+      pageTitle: '升级方案',
+      pageDescription: '解锁更多创作额度',
+      currentPlan: '当前方案',
+      contactUs: '联系我们',
+      contactEmail: '升级咨询：support@image-studio.site',
+      perMonth: '/月',
+      perDay: '次/日',
+      features: {
+        dailyQuota: '次/日',
+        monthlyQuota: '次/月',
+        allScenarios: '全部场景',
+        fourK: '4K 质量',
+        priorityQueue: '优先队列',
+        basicScenarios: '基础场景',
+      },
+    },
+    galleryFilter: {
+      all: '全部',
+      today: '今天',
+      last7Days: '最近 7 天',
+      last30Days: '最近 30 天',
+      favoritesOnly: '仅收藏',
+      timeRange: '时间范围',
+    },
   },
   en: {
     landing: {
@@ -289,6 +393,8 @@ export const copy: Record<Locale, LocaleCopy> = {
       quotaToday: 'today',
       localeZh: '中',
       localeEn: 'EN',
+      settings: 'Settings',
+      upgrade: 'Upgrade',
     },
     legal: {
       termsLink: 'Terms',
@@ -401,6 +507,56 @@ export const copy: Record<Locale, LocaleCopy> = {
       copyToGenerate: 'Copy to Generate',
       copyPrompt: 'Copy Prompt',
       continueEdit: 'Continue Edit',
+    },
+    settings: {
+      pageTitle: 'Account Settings',
+      profileSection: 'Profile',
+      nameLabel: 'Display Name',
+      namePlaceholder: 'Enter display name',
+      avatarLabel: 'Avatar',
+      avatarUpload: 'Upload new avatar',
+      saveButton: 'Save',
+      saving: 'Saving...',
+      languageSection: 'Language',
+      languageLabel: 'Language',
+      securitySection: 'Security',
+      currentPassword: 'Current Password',
+      newPassword: 'New Password',
+      confirmPassword: 'Confirm Password',
+      changePasswordButton: 'Change Password',
+      changingPassword: 'Changing...',
+      profileSuccess: 'Profile updated',
+      passwordSuccess: 'Password changed',
+      passwordMismatch: 'Passwords do not match.',
+      passwordTooShort: 'Password must be at least 8 characters.',
+      currentPasswordWrong: 'Current password is incorrect.',
+      localeSuccess: 'Language preference saved',
+      localeFailed: 'Language switch failed',
+    },
+    upgrade: {
+      pageTitle: 'Upgrade Plans',
+      pageDescription: 'Unlock more creative credits',
+      currentPlan: 'Current Plan',
+      contactUs: 'Contact Us',
+      contactEmail: 'Upgrade inquiries: support@image-studio.site',
+      perMonth: '/mo',
+      perDay: '/day',
+      features: {
+        dailyQuota: '/day',
+        monthlyQuota: '/month',
+        allScenarios: 'All scenarios',
+        fourK: '4K quality',
+        priorityQueue: 'Priority queue',
+        basicScenarios: 'Basic scenarios',
+      },
+    },
+    galleryFilter: {
+      all: 'All',
+      today: 'Today',
+      last7Days: 'Last 7 days',
+      last30Days: 'Last 30 days',
+      favoritesOnly: 'Favorites only',
+      timeRange: 'Time range',
     },
   },
 }
