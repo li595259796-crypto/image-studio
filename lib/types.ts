@@ -8,6 +8,7 @@ export interface ImageRecord {
   blobUrl: string
   sizeBytes: number | null
   sourceImages: string | null
+  isFavorite: boolean
   createdAt: Date
 }
 
@@ -23,4 +24,11 @@ export interface ActionResult<T = unknown> {
   success: boolean
   data?: T
   error?: string
+  errorCode?: 'quota_exceeded' | 'auth_required' | 'validation_error'
+  quota?: {
+    dailyUsed: number
+    dailyLimit: number
+    monthlyUsed: number
+    monthlyLimit: number
+  }
 }

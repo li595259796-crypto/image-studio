@@ -1,11 +1,17 @@
 'use client'
 
 import { useRef, useState, useTransition, useEffect } from 'react'
-import { Wand2, Download, Loader2 } from 'lucide-react'
+import { Wand2, Loader2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { useLocale } from '@/components/locale-provider'
+import { copy } from '@/lib/i18n'
+import { getScenario } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
+import { showQuotaError } from '@/lib/error-toast'
+import { PostActions } from '@/components/post-actions'
+import { RefineDialog } from '@/components/refine-dialog'
 import type { ActionResult } from '@/lib/types'
 
 const aspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const
@@ -16,13 +22,24 @@ interface GenerateResult {
   imageId: string
 }
 
-export function GenerateForm() {
+interface GenerateFormProps {
+  onBack?: () => void
+  initialPrompt?: string
+  initialAspectRatio?: string
+  initialQuality?: string
+}
+
+export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initialQuality }: GenerateFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
-  const [aspectRatio, setAspectRatio] = useState<string>('16:9')
-  const [quality, setQuality] = useState<string>('2K')
+  const [prompt, setPrompt] = useState(initialPrompt ?? '')
+  const [aspectRatio, setAspectRatio] = useState<string>(initialAspectRatio ?? '16:9')
+  const [quality, setQuality] = useState<string>(initialQuality ?? '2K')
   const [result, setResult] = useState<ActionResult<GenerateResult> | null>(null)
   const [elapsed, setElapsed] = useState(0)
+  const { locale } = useLocale()
+  const t = copy[locale].scenario
+  const freeformScenario = getScenario('freeform')
 
   useEffect(() => {
     if (!isPending) return
@@ -33,19 +50,6 @@ export function GenerateForm() {
     return () => clearInterval(interval)
   }, [isPending])
 
-  async function handleDownload(url: string, filename: string) {
-    const response = await fetch(url)
-    const blob = await response.blob()
-    const blobUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = blobUrl
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(blobUrl)
-  }
-
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setElapsed(0)
@@ -55,18 +59,80 @@ export function GenerateForm() {
 
     startTransition(async () => {
       const res = await generateImageAction(formData)
+      if (res.errorCode === 'quota_exceeded' && res.quota) {
+        showQuotaError(locale, res.quota)
+        return
+      }
       setResult(res)
     })
   }
 
+  function handleRetry() {
+    setResult(null)
+    setElapsed(0)
+    const formData = new FormData()
+    formData.set('prompt', prompt)
+    formData.set('aspectRatio', aspectRatio)
+    formData.set('quality', quality)
+
+    startTransition(async () => {
+      const res = await generateImageAction(formData)
+      if (res.errorCode === 'quota_exceeded' && res.quota) {
+        showQuotaError(locale, res.quota)
+        return
+      }
+      setResult(res)
+    })
+  }
+
+  // --- Result view ---
+  if (result?.success && result.data) {
+    return (
+      <div className="space-y-4">
+        {onBack && (
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+            <ArrowLeft className="size-3.5" />
+            {t.backToScenarios}
+          </Button>
+        )}
+        <div className="overflow-hidden rounded-xl border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={result.data.imageUrl} alt="Generated image" className="w-full object-contain" />
+        </div>
+        <PostActions
+          imageUrl={result.data.imageUrl}
+          imageId={result.data.imageId}
+          prompt={prompt}
+          isUploadType={false}
+          editIntent={freeformScenario.editIntent}
+          onRetry={handleRetry}
+          retrying={isPending}
+        />
+      </div>
+    )
+  }
+
+  // --- Form view ---
   return (
     <div className="space-y-6">
+      {onBack && (
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+            <ArrowLeft className="size-3.5" />
+            {t.backToScenarios}
+          </Button>
+          <span className="text-lg">{freeformScenario.icon} {t.freeform.name}</span>
+        </div>
+      )}
+
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="prompt">Prompt</Label>
           <Textarea
             id="prompt"
             name="prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe the image you want to create..."
             className="min-h-32 resize-none"
             required
@@ -75,7 +141,7 @@ export function GenerateForm() {
         </div>
 
         <div className="space-y-2">
-          <Label>Aspect Ratio</Label>
+          <Label>{t.aspectRatioLabel}</Label>
           <div className="flex flex-wrap gap-2">
             {aspectRatios.map((ratio) => (
               <Button
@@ -93,7 +159,7 @@ export function GenerateForm() {
         </div>
 
         <div className="space-y-2">
-          <Label>Quality</Label>
+          <Label>{t.qualityLabel}</Label>
           <div className="flex flex-wrap gap-2">
             {qualities.map((q) => (
               <Button
@@ -110,50 +176,30 @@ export function GenerateForm() {
           </div>
         </div>
 
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full gap-2"
-          disabled={isPending}
-        >
+        <RefineDialog
+          scenarioId="freeform"
+          currentDescription={prompt}
+          onApply={(refined) => setPrompt(refined)}
+        />
+
+        <Button type="submit" size="lg" className="w-full gap-2" disabled={isPending}>
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Generating... {elapsed}s
+              {t.generatingButton} {elapsed}s
             </>
           ) : (
             <>
               <Wand2 className="size-4" />
-              Generate
+              {t.generateButton}
             </>
           )}
         </Button>
       </form>
 
-      {result && !result.success && (
+      {result && !result.success && result.errorCode !== 'quota_exceeded' && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {result.error}
-        </div>
-      )}
-
-      {result?.success && result.data && (
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl border">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={result.data.imageUrl}
-              alt="Generated image"
-              className="w-full object-contain"
-            />
-          </div>
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => handleDownload(result.data!.imageUrl, `generated-${result.data!.imageId}.png`)}
-          >
-            <Download className="size-4" />
-            Download
-          </Button>
         </div>
       )}
     </div>

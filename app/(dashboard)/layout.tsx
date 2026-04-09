@@ -1,7 +1,9 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { getQuotaInfo } from '@/lib/db/queries'
+import { getQuotaInfo, getUserProfile } from '@/lib/db/queries'
 import { NavBar } from '@/components/nav-bar'
+import { LocaleSync } from '@/components/locale-sync'
+import type { Locale } from '@/lib/i18n'
 
 export default async function DashboardLayout({
   children,
@@ -14,21 +16,34 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  const userId = session.user.id!
+
+  // Single guarded block for all DB reads
+  let profile: { name: string | null; email: string; image: string | null; locale: string } | null = null
   let quota = { dailyUsed: 0, dailyLimit: 10 }
+
   try {
-    const quotaInfo = await getQuotaInfo(session.user.id!)
+    const [profileResult, quotaInfo] = await Promise.all([
+      getUserProfile(userId),
+      getQuotaInfo(userId),
+    ])
+    profile = profileResult
     quota = { dailyUsed: quotaInfo.dailyUsed, dailyLimit: quotaInfo.dailyLimit }
   } catch {
-    // Fall back to defaults if quota check fails
+    // Fall back to session data if DB is unavailable
   }
 
   const userInfo = {
-    email: session.user.email ?? '',
-    displayName: session.user.name ?? undefined,
+    email: profile?.email ?? session.user.email ?? '',
+    displayName: profile?.name ?? undefined,
   }
+
+  const rawLocale = profile?.locale
+  const dbLocale: Locale = rawLocale === 'en' || rawLocale === 'zh' ? rawLocale : 'zh'
 
   return (
     <div className="flex min-h-screen flex-col">
+      <LocaleSync locale={dbLocale} />
       <NavBar user={userInfo} quota={quota} />
       <main className="flex-1">
         <div className="mx-auto max-w-6xl p-6">{children}</div>

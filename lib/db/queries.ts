@@ -1,5 +1,6 @@
 import { eq, gte, and, count, desc } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { getGallerySinceDate, type GalleryTimeRange } from '@/lib/gallery'
 import { users, images, usageLogs } from './schema'
 
 export async function getUserById(userId: string) {
@@ -10,6 +11,25 @@ export async function getUserById(userId: string) {
     .limit(1)
 
   return result[0] ?? null
+}
+
+export async function getUserProfile(userId: string) {
+  const result = await db
+    .select({
+      name: users.name,
+      email: users.email,
+      image: users.image,
+      locale: users.locale,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  return result[0] ?? null
+}
+
+export async function updateUserLocale(userId: string, locale: string) {
+  await db.update(users).set({ locale }).where(eq(users.id, userId))
 }
 
 export async function getQuotaInfo(userId: string): Promise<{
@@ -115,6 +135,72 @@ export async function getUserImages(
     images: rows,
     total: totalResult[0]?.value ?? 0,
   }
+}
+
+export async function getUserImagesFiltered(
+  userId: string,
+  offset: number = 0,
+  limit: number = 20,
+  filters?: {
+    favoriteOnly?: boolean
+    timeRange?: GalleryTimeRange
+  }
+): Promise<{ images: (typeof images.$inferSelect)[]; total: number }> {
+  const conditions = [eq(images.userId, userId)]
+
+  if (filters?.favoriteOnly) {
+    conditions.push(eq(images.isFavorite, true))
+  }
+
+  if (filters?.timeRange) {
+    conditions.push(gte(images.createdAt, getGallerySinceDate(filters.timeRange)))
+  }
+
+  const whereClause = and(...conditions)
+
+  const [rows, totalResult] = await Promise.all([
+    db
+      .select()
+      .from(images)
+      .where(whereClause)
+      .orderBy(desc(images.createdAt))
+      .offset(offset)
+      .limit(limit),
+    db
+      .select({ value: count() })
+      .from(images)
+      .where(whereClause),
+  ])
+
+  return {
+    images: rows,
+    total: totalResult[0]?.value ?? 0,
+  }
+}
+
+export async function toggleImageFavorite(
+  imageId: string,
+  userId: string
+): Promise<boolean | null> {
+  const image = await db
+    .select({ isFavorite: images.isFavorite })
+    .from(images)
+    .where(and(eq(images.id, imageId), eq(images.userId, userId)))
+    .limit(1)
+    .then((rows) => rows[0] ?? null)
+
+  if (!image) {
+    return null
+  }
+
+  const nextValue = !image.isFavorite
+
+  await db
+    .update(images)
+    .set({ isFavorite: nextValue })
+    .where(and(eq(images.id, imageId), eq(images.userId, userId)))
+
+  return nextValue
 }
 
 export async function insertImage(

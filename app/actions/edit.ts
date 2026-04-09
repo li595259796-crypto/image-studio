@@ -65,7 +65,14 @@ export async function editImageAction(
     if (!quota.allowed) {
       return {
         success: false,
-        error: `Quota exceeded. Daily: ${quota.dailyUsed}/${quota.dailyLimit}, Monthly: ${quota.monthlyUsed}/${quota.monthlyLimit}`,
+        error: 'Quota exceeded',
+        errorCode: 'quota_exceeded' as const,
+        quota: {
+          dailyUsed: quota.dailyUsed,
+          dailyLimit: quota.dailyLimit,
+          monthlyUsed: quota.monthlyUsed,
+          monthlyLimit: quota.monthlyLimit,
+        },
       }
     }
 

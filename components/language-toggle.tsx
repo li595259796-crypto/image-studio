@@ -1,10 +1,30 @@
 'use client'
 
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useLocale } from '@/components/locale-provider'
+import type { Locale } from '@/lib/i18n'
 
-export function LanguageToggle({ className }: { className?: string }) {
+interface LanguageToggleProps {
+  className?: string
+  onPersist?: (locale: Locale) => Promise<unknown>
+}
+
+export function LanguageToggle({ className, onPersist }: LanguageToggleProps) {
   const { locale, setLocale, dictionary } = useLocale()
+
+  function handleSwitch(newLocale: Locale) {
+    if (newLocale === locale) return
+    const prev = locale
+    setLocale(newLocale)
+
+    if (onPersist) {
+      onPersist(newLocale).catch(() => {
+        setLocale(prev)
+        toast.error(dictionary.settings.localeFailed)
+      })
+    }
+  }
 
   return (
     <div
@@ -17,7 +37,7 @@ export function LanguageToggle({ className }: { className?: string }) {
     >
       <button
         type="button"
-        onClick={() => setLocale('zh')}
+        onClick={() => handleSwitch('zh')}
         className={cn(
           'rounded-full px-2.5 py-1 transition-colors',
           locale === 'zh'
@@ -29,7 +49,7 @@ export function LanguageToggle({ className }: { className?: string }) {
       </button>
       <button
         type="button"
-        onClick={() => setLocale('en')}
+        onClick={() => handleSwitch('en')}
         className={cn(
           'rounded-full px-2.5 py-1 transition-colors',
           locale === 'en'

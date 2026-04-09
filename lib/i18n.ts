@@ -31,6 +31,8 @@ interface LocaleCopy {
     quotaToday: string
     localeZh: string
     localeEn: string
+    settings: string
+    upgrade: string
   }
   legal: {
     termsLink: string
@@ -43,6 +45,122 @@ interface LocaleCopy {
     privacyTitle: string
     privacyIntro: string
     privacySections: LegalSection[]
+  }
+  scenario: {
+    pageTitle: string
+    pageDescription: string
+    backToScenarios: string
+    product: { name: string; subtitle: string; placeholder: string }
+    cover: { name: string; subtitle: string; placeholder: string }
+    poster: { name: string; subtitle: string; placeholder: string }
+    portrait: { name: string; subtitle: string; placeholder: string; styleLabel: string; extraLabel: string }
+    illustration: { name: string; subtitle: string; placeholder: string }
+    freeform: { name: string; subtitle: string }
+    uploadLabel: string
+    descriptionLabel: string
+    aspectRatioLabel: string
+    qualityLabel: string
+    generateButton: string
+    generatingButton: string
+    refineButton: string
+  }
+  postAction: {
+    download: string
+    continueEdit: string
+    retry: string
+    retryWithSource: string
+    copyPrompt: string
+    copyToGenerate: string
+    quotaNote: string
+    copiedToast: string
+  }
+  refine: {
+    title: string
+    placeholder: string
+    sendButton: string
+    applyButton: string
+    closeButton: string
+  }
+  auth: {
+    loginTitle: string
+    loginDescription: string
+    loginButton: string
+    loginLoading: string
+    loginError: string
+    signupTitle: string
+    signupDescription: string
+    signupButton: string
+    signupLoading: string
+    signupError: string
+    signupAutoLoginError: string
+    emailLabel: string
+    emailPlaceholder: string
+    passwordLabel: string
+    passwordPlaceholder: string
+    confirmPasswordLabel: string
+    confirmPasswordPlaceholder: string
+    passwordMismatch: string
+    passwordTooShort: string
+    noAccount: string
+    hasAccount: string
+    signupLink: string
+    loginLink: string
+    unexpectedError: string
+  }
+  gallery: {
+    copyToGenerate: string
+    copyPrompt: string
+    continueEdit: string
+  }
+  settings: {
+    pageTitle: string
+    profileSection: string
+    nameLabel: string
+    namePlaceholder: string
+    avatarLabel: string
+    avatarUpload: string
+    saveButton: string
+    saving: string
+    languageSection: string
+    languageLabel: string
+    securitySection: string
+    currentPassword: string
+    newPassword: string
+    confirmPassword: string
+    changePasswordButton: string
+    changingPassword: string
+    profileSuccess: string
+    passwordSuccess: string
+    passwordMismatch: string
+    passwordTooShort: string
+    currentPasswordWrong: string
+    localeSuccess: string
+    localeFailed: string
+  }
+  upgrade: {
+    pageTitle: string
+    pageDescription: string
+    currentPlan: string
+    contactUs: string
+    contactEmail: string
+    perMonth: string
+    perDay: string
+    features: {
+      dailyQuota: string
+      monthlyQuota: string
+      allScenarios: string
+      fourK: string
+      priorityQueue: string
+      basicScenarios: string
+    }
+  }
+  galleryFilter: {
+    all: string
+    today: string
+    last7Days: string
+    last30Days: string
+    favoritesOnly: string
+    timeRange: string
   }
 }
 
@@ -78,6 +196,8 @@ export const copy: Record<Locale, LocaleCopy> = {
       quotaToday: '今日',
       localeZh: '中',
       localeEn: 'EN',
+      settings: '账户设置',
+      upgrade: '升级方案',
     },
     legal: {
       termsLink: '服务条款',
@@ -125,6 +245,122 @@ export const copy: Record<Locale, LocaleCopy> = {
         },
       ],
     },
+    scenario: {
+      pageTitle: '创作',
+      pageDescription: '选择一个场景，3 步出图',
+      backToScenarios: '← 返回选择场景',
+      product: { name: '商品图', subtitle: '上传商品+换背景', placeholder: '放在蓝色水面背景上，自然光' },
+      cover: { name: '封面视觉', subtitle: '主题配图生成', placeholder: '日落海边，暖色调，适合旅行主题' },
+      poster: { name: '海报底图', subtitle: '视觉素材生成', placeholder: '城市夜景，霓虹灯，科技感氛围' },
+      portrait: { name: '风格头像', subtitle: '上传人像+换风格', placeholder: '暖色调，微笑表情', styleLabel: '选择风格', extraLabel: '补充描述（可选）' },
+      illustration: { name: '创意插画', subtitle: '描述即出图', placeholder: '一只戴眼镜的猫在读书，温馨水彩风' },
+      freeform: { name: '自由创作', subtitle: '手写 prompt' },
+      uploadLabel: '上传你的图片',
+      descriptionLabel: '描述你想要的效果',
+      aspectRatioLabel: '宽高比',
+      qualityLabel: '质量',
+      generateButton: '🎨 生成',
+      generatingButton: '生成中...',
+      refineButton: '💡 帮我完善需求',
+    },
+    postAction: {
+      download: '下载',
+      continueEdit: '继续编辑',
+      retry: '再试一次',
+      retryWithSource: '再试一次（含原图）',
+      copyPrompt: '复制 Prompt',
+      copyToGenerate: '复制到生成页',
+      quotaNote: '消耗 1 次额度',
+      copiedToast: '已复制到剪贴板',
+    },
+    refine: {
+      title: '帮我完善需求',
+      placeholder: '输入你的想法...',
+      sendButton: '发送',
+      applyButton: '使用此描述',
+      closeButton: '关闭',
+    },
+    auth: {
+      loginTitle: '登录',
+      loginDescription: '登录你的账户',
+      loginButton: '登录',
+      loginLoading: '登录中...',
+      loginError: '邮箱或密码错误',
+      signupTitle: '注册',
+      signupDescription: '创建你的账户',
+      signupButton: '注册',
+      signupLoading: '创建账户中...',
+      signupError: '创建账户失败',
+      signupAutoLoginError: '账户已创建，但自动登录失败，请手动登录',
+      emailLabel: '邮箱',
+      emailPlaceholder: 'you@example.com',
+      passwordLabel: '密码',
+      passwordPlaceholder: '输入密码',
+      confirmPasswordLabel: '确认密码',
+      confirmPasswordPlaceholder: '再次输入密码',
+      passwordMismatch: '两次密码不一致',
+      passwordTooShort: '密码至少 8 位',
+      noAccount: '没有账户？',
+      hasAccount: '已有账户？',
+      signupLink: '注册',
+      loginLink: '登录',
+      unexpectedError: '发生意外错误，请重试',
+    },
+    gallery: {
+      copyToGenerate: '复制到生成页',
+      copyPrompt: '复制 Prompt',
+      continueEdit: '继续编辑',
+    },
+    settings: {
+      pageTitle: '账户设置',
+      profileSection: '基本信息',
+      nameLabel: '昵称',
+      namePlaceholder: '输入昵称',
+      avatarLabel: '头像',
+      avatarUpload: '上传新头像',
+      saveButton: '保存',
+      saving: '保存中...',
+      languageSection: '语言偏好',
+      languageLabel: '语言',
+      securitySection: '安全',
+      currentPassword: '当前密码',
+      newPassword: '新密码',
+      confirmPassword: '确认密码',
+      changePasswordButton: '修改密码',
+      changingPassword: '修改中...',
+      profileSuccess: '个人信息已更新',
+      passwordSuccess: '密码已修改',
+      passwordMismatch: '两次密码不一致',
+      passwordTooShort: '密码至少 8 位',
+      currentPasswordWrong: '当前密码错误',
+      localeSuccess: '语言偏好已保存',
+      localeFailed: '语言切换失败',
+    },
+    upgrade: {
+      pageTitle: '升级方案',
+      pageDescription: '解锁更多创作额度',
+      currentPlan: '当前方案',
+      contactUs: '联系我们',
+      contactEmail: '升级咨询：support@image-studio.site',
+      perMonth: '/月',
+      perDay: '次/日',
+      features: {
+        dailyQuota: '次/日',
+        monthlyQuota: '次/月',
+        allScenarios: '全部场景',
+        fourK: '4K 质量',
+        priorityQueue: '优先队列',
+        basicScenarios: '基础场景',
+      },
+    },
+    galleryFilter: {
+      all: '全部',
+      today: '今天',
+      last7Days: '最近 7 天',
+      last30Days: '最近 30 天',
+      favoritesOnly: '仅收藏',
+      timeRange: '时间范围',
+    },
   },
   en: {
     landing: {
@@ -157,6 +393,8 @@ export const copy: Record<Locale, LocaleCopy> = {
       quotaToday: 'today',
       localeZh: '中',
       localeEn: 'EN',
+      settings: 'Settings',
+      upgrade: 'Upgrade',
     },
     legal: {
       termsLink: 'Terms',
@@ -203,6 +441,122 @@ export const copy: Record<Locale, LocaleCopy> = {
             'Leo Image Studio uses third-party AI APIs, database providers, and blob storage, which may handle relevant request data to fulfill the service.',
         },
       ],
+    },
+    scenario: {
+      pageTitle: 'Create',
+      pageDescription: 'Pick a scenario, generate in 3 steps',
+      backToScenarios: '← Back to scenarios',
+      product: { name: 'Product Photo', subtitle: 'Upload product + change background', placeholder: 'On a blue water background, natural lighting' },
+      cover: { name: 'Cover Visual', subtitle: 'Theme visual generation', placeholder: 'Ocean sunset, warm tones, travel theme' },
+      poster: { name: 'Poster Background', subtitle: 'Visual asset generation', placeholder: 'City night, neon lights, tech atmosphere' },
+      portrait: { name: 'Style Portrait', subtitle: 'Upload photo + restyle', placeholder: 'Warm tones, smiling', styleLabel: 'Choose style', extraLabel: 'Extra description (optional)' },
+      illustration: { name: 'Creative Illustration', subtitle: 'Describe and generate', placeholder: 'A cat wearing glasses reading a book, cozy watercolor style' },
+      freeform: { name: 'Free Create', subtitle: 'Write your own prompt' },
+      uploadLabel: 'Upload your image',
+      descriptionLabel: 'Describe the look you want',
+      aspectRatioLabel: 'Aspect Ratio',
+      qualityLabel: 'Quality',
+      generateButton: '🎨 Generate',
+      generatingButton: 'Generating...',
+      refineButton: '💡 Help me refine',
+    },
+    postAction: {
+      download: 'Download',
+      continueEdit: 'Continue Edit',
+      retry: 'Retry',
+      retryWithSource: 'Retry (with source)',
+      copyPrompt: 'Copy Prompt',
+      copyToGenerate: 'Copy to Generate',
+      quotaNote: 'Uses 1 credit',
+      copiedToast: 'Copied to clipboard',
+    },
+    refine: {
+      title: 'Help me refine',
+      placeholder: 'Type your idea...',
+      sendButton: 'Send',
+      applyButton: 'Use this description',
+      closeButton: 'Close',
+    },
+    auth: {
+      loginTitle: 'Sign In',
+      loginDescription: 'Sign in to your account',
+      loginButton: 'Sign In',
+      loginLoading: 'Signing in...',
+      loginError: 'Invalid email or password.',
+      signupTitle: 'Sign Up',
+      signupDescription: 'Create your account',
+      signupButton: 'Sign Up',
+      signupLoading: 'Creating account...',
+      signupError: 'Failed to create account.',
+      signupAutoLoginError: 'Account created but sign-in failed. Please sign in manually.',
+      emailLabel: 'Email',
+      emailPlaceholder: 'you@example.com',
+      passwordLabel: 'Password',
+      passwordPlaceholder: 'Your password',
+      confirmPasswordLabel: 'Confirm Password',
+      confirmPasswordPlaceholder: 'Confirm your password',
+      passwordMismatch: 'Passwords do not match.',
+      passwordTooShort: 'Password must be at least 8 characters.',
+      noAccount: "Don't have an account?",
+      hasAccount: 'Already have an account?',
+      signupLink: 'Sign Up',
+      loginLink: 'Sign In',
+      unexpectedError: 'An unexpected error occurred. Please try again.',
+    },
+    gallery: {
+      copyToGenerate: 'Copy to Generate',
+      copyPrompt: 'Copy Prompt',
+      continueEdit: 'Continue Edit',
+    },
+    settings: {
+      pageTitle: 'Account Settings',
+      profileSection: 'Profile',
+      nameLabel: 'Display Name',
+      namePlaceholder: 'Enter display name',
+      avatarLabel: 'Avatar',
+      avatarUpload: 'Upload new avatar',
+      saveButton: 'Save',
+      saving: 'Saving...',
+      languageSection: 'Language',
+      languageLabel: 'Language',
+      securitySection: 'Security',
+      currentPassword: 'Current Password',
+      newPassword: 'New Password',
+      confirmPassword: 'Confirm Password',
+      changePasswordButton: 'Change Password',
+      changingPassword: 'Changing...',
+      profileSuccess: 'Profile updated',
+      passwordSuccess: 'Password changed',
+      passwordMismatch: 'Passwords do not match.',
+      passwordTooShort: 'Password must be at least 8 characters.',
+      currentPasswordWrong: 'Current password is incorrect.',
+      localeSuccess: 'Language preference saved',
+      localeFailed: 'Language switch failed',
+    },
+    upgrade: {
+      pageTitle: 'Upgrade Plans',
+      pageDescription: 'Unlock more creative credits',
+      currentPlan: 'Current Plan',
+      contactUs: 'Contact Us',
+      contactEmail: 'Upgrade inquiries: support@image-studio.site',
+      perMonth: '/mo',
+      perDay: '/day',
+      features: {
+        dailyQuota: '/day',
+        monthlyQuota: '/month',
+        allScenarios: 'All scenarios',
+        fourK: '4K quality',
+        priorityQueue: 'Priority queue',
+        basicScenarios: 'Basic scenarios',
+      },
+    },
+    galleryFilter: {
+      all: 'All',
+      today: 'Today',
+      last7Days: 'Last 7 days',
+      last30Days: 'Last 30 days',
+      favoritesOnly: 'Favorites only',
+      timeRange: 'Time range',
     },
   },
 }

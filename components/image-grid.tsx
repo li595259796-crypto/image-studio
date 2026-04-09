@@ -14,6 +14,7 @@ interface ImageGridProps {
   hasMore: boolean
   loading: boolean
   onImageDeleted?: (imageId: string) => void
+  onFavoriteChanged?: (imageId: string, isFavorite: boolean) => void
 }
 
 export function ImageGrid({
@@ -22,6 +23,7 @@ export function ImageGrid({
   hasMore,
   loading,
   onImageDeleted,
+  onFavoriteChanged,
 }: ImageGridProps) {
   const [selectedImage, setSelectedImage] = useState<ImageRecord | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
@@ -35,6 +37,14 @@ export function ImageGrid({
     onImageDeleted?.(imageId)
     setViewerOpen(false)
     setSelectedImage(null)
+  }
+
+  function handleFavoriteChanged(imageId: string, isFavorite: boolean) {
+    onFavoriteChanged?.(imageId, isFavorite)
+
+    setSelectedImage((prev) =>
+      prev?.id === imageId ? { ...prev, isFavorite } : prev
+    )
   }
 
   if (!loading && images.length === 0) {
@@ -58,6 +68,7 @@ export function ImageGrid({
             key={image.id}
             image={image}
             onClick={() => handleCardClick(image)}
+            onFavoriteChanged={handleFavoriteChanged}
           />
         ))}
         {loading &&
@@ -89,6 +100,7 @@ export function ImageGrid({
         open={viewerOpen}
         onOpenChange={setViewerOpen}
         onDeleted={handleDeleted}
+        onFavoriteChanged={handleFavoriteChanged}
       />
     </div>
   )
