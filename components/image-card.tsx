@@ -33,14 +33,15 @@ export function ImageCard({
   function handleFavoriteToggle(e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation()
 
-    const nextValue = !image.isFavorite
+    const previousValue = image.isFavorite
+    const nextValue = !previousValue
     onFavoriteChanged?.(image.id, nextValue)
 
     startTransition(async () => {
       const result = await toggleFavoriteAction(image.id)
 
       if (!result.success || !result.data) {
-        onFavoriteChanged?.(image.id, image.isFavorite)
+        onFavoriteChanged?.(image.id, previousValue)
         toast.error(result.error ?? 'Failed to update favorite')
         return
       }

@@ -113,14 +113,15 @@ export function ImageViewer({
   }
 
   function handleFavoriteToggle() {
-    const nextValue = !currentImage.isFavorite
+    const previousValue = currentImage.isFavorite
+    const nextValue = !previousValue
     onFavoriteChanged?.(currentImage.id, nextValue)
 
     startFavoriteTransition(async () => {
       const result = await toggleFavoriteAction(currentImage.id)
 
       if (!result.success || !result.data) {
-        onFavoriteChanged?.(currentImage.id, currentImage.isFavorite)
+        onFavoriteChanged?.(currentImage.id, previousValue)
         toast.error(result.error ?? 'Failed to update favorite')
         return
       }
@@ -204,7 +205,7 @@ export function ImageViewer({
               fill={currentImage.isFavorite ? 'currentColor' : 'none'}
             />
             {locale === 'zh'
-              ? image.isFavorite ? '取消收藏' : '收藏'
+              ? currentImage.isFavorite ? '取消收藏' : '收藏'
               : currentImage.isFavorite ? 'Unfavorite' : 'Favorite'}
           </Button>
 

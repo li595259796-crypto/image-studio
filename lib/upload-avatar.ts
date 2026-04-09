@@ -2,12 +2,14 @@ import { put, del } from '@vercel/blob'
 
 export async function uploadAvatar(
   userId: string,
-  imageBuffer: Buffer
+  imageBuffer: Buffer,
+  contentType: 'image/png' | 'image/jpeg' | 'image/webp' = 'image/png'
 ): Promise<{ url: string }> {
-  const filename = `avatars/${userId}.png`
+  const ext = contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1]
+  const filename = `avatars/${userId}.${ext}`
   const blob = await put(filename, imageBuffer, {
     access: 'public',
-    contentType: 'image/png',
+    contentType,
     addRandomSuffix: false,
   })
 

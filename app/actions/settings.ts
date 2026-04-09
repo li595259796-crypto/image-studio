@@ -69,7 +69,11 @@ export async function updateProfileAction(
 
     if (avatarFile) {
       const buffer = Buffer.from(await avatarFile.arrayBuffer())
-      const uploaded = await uploadAvatar(session.user.id, buffer)
+      const uploaded = await uploadAvatar(
+        session.user.id,
+        buffer,
+        avatarFile.type as 'image/png' | 'image/jpeg' | 'image/webp'
+      )
       imageUrl = uploaded.url
     }
 
@@ -105,6 +109,10 @@ export async function changePasswordAction(
 
     if (newPassword.length < 8) {
       return { success: false, error: 'Password must be at least 8 characters' }
+    }
+
+    if (newPassword.length > 72) {
+      return { success: false, error: 'Password must be 72 characters or fewer' }
     }
 
     const user = await getUserById(session.user.id)

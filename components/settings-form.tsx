@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { Upload } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -48,12 +48,16 @@ export function SettingsForm({ profile }: SettingsFormProps) {
   const [isLocalePending, startLocaleTransition] = useTransition()
   const [isPasswordPending, startPasswordTransition] = useTransition()
 
-  const avatarPreview = useMemo(() => {
-    if (avatarFile) {
-      return URL.createObjectURL(avatarFile)
-    }
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.image)
 
-    return profile.image
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreview(profile.image)
+      return
+    }
+    const url = URL.createObjectURL(avatarFile)
+    setAvatarPreview(url)
+    return () => URL.revokeObjectURL(url)
   }, [avatarFile, profile.image])
 
   function handleAvatarChange(file: File | null) {
