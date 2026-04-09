@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
 import { createTask, recordUsageReturningId } from '@/lib/db/queries'
 import { after } from 'next/server'
-import { processNextTask } from '@/lib/task-worker'
+import { triggerWorker } from '@/lib/trigger-worker'
 import { put } from '@vercel/blob'
 import { fileTypeFromBuffer } from 'file-type'
 import type { ActionResult } from '@/lib/types'
@@ -110,7 +110,7 @@ export async function editImageAction(
       usageLogId,
     })
 
-    after(() => { processNextTask().catch(() => {}) })
+    after(() => triggerWorker())
 
     return { success: true, data: { taskId } }
   } catch {
