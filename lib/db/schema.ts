@@ -95,6 +95,31 @@ export const usageLogs = pgTable('usageLogs', {
 })
 
 // ============================================================
+// tasks (async job queue)
+// ============================================================
+export const tasks = pgTable('tasks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  type: text('type').$type<'generate' | 'edit'>().notNull(),
+  status: text('status')
+    .$type<'pending' | 'processing' | 'completed' | 'failed'>()
+    .default('pending')
+    .notNull(),
+  payload: text('payload').notNull(),
+  result: text('result'),
+  attempts: integer('attempts').default(0).notNull(),
+  maxAttempts: integer('maxAttempts').default(3).notNull(),
+  lastError: text('lastError'),
+  usageLogId: uuid('usageLogId').references(() => usageLogs.id),
+  nextRetryAt: timestamp('nextRetryAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+  completedAt: timestamp('completedAt', { mode: 'date' }),
+})
+
+// ============================================================
 // Relations
 // ============================================================
 export const usersRelations = relations(users, ({ many }) => ({
@@ -102,6 +127,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   images: many(images),
   usageLogs: many(usageLogs),
+  tasks: many(tasks),
 }))
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -128,6 +154,13 @@ export const imagesRelations = relations(images, ({ one }) => ({
 export const usageLogsRelations = relations(usageLogs, ({ one }) => ({
   user: one(users, {
     fields: [usageLogs.userId],
+    references: [users.id],
+  }),
+}))
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  user: one(users, {
+    fields: [tasks.userId],
     references: [users.id],
   }),
 }))
