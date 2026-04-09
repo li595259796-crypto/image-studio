@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
 import { createTask, recordUsageReturningId } from '@/lib/db/queries'
 import { after } from 'next/server'
-import { triggerWorker } from '@/lib/trigger-worker'
+import { processNextTask } from '@/lib/task-worker'
 import type { ActionResult } from '@/lib/types'
 
 interface SubmitResult {
@@ -66,7 +66,7 @@ export async function generateImageAction(
       usageLogId,
     })
 
-    after(() => triggerWorker())
+    after(() => { processNextTask().catch(() => {}) })
 
     return { success: true, data: { taskId } }
   } catch {
