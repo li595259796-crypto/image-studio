@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Image from 'next/image'
 import { Download, Trash2, Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -44,6 +45,19 @@ export function ImageViewer({
 
   if (!image) return null
 
+  async function handleDownload(url: string, filename: string) {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+  }
+
   function handleDelete() {
     if (!confirmDelete) {
       setConfirmDelete(true)
@@ -77,11 +91,13 @@ export function ImageViewer({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-lg border">
-            <img
+          <div className="relative min-h-64 overflow-hidden rounded-lg border">
+            <Image
               src={image.blobUrl ?? ''}
               alt={image.prompt}
-              className="w-full object-contain"
+              fill
+              className="object-contain"
+              sizes="(max-width: 768px) 100vw, 672px"
             />
           </div>
 
@@ -119,15 +135,7 @@ export function ImageViewer({
             variant="outline"
             size="sm"
             className="gap-1.5"
-            render={
-              <a
-                href={image.blobUrl ?? ''}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Download image"
-              />
-            }
+            onClick={() => handleDownload(image.blobUrl ?? '', `image-${image.id}.png`)}
           >
             <Download className="size-3.5" />
             Download

@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocale } from '@/components/locale-provider'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 
@@ -9,6 +10,7 @@ interface QuotaBadgeProps {
 }
 
 export function QuotaBadge({ dailyUsed, dailyLimit }: QuotaBadgeProps) {
+  const { dictionary } = useLocale()
   const percentage = dailyLimit > 0 ? (dailyUsed / dailyLimit) * 100 : 0
 
   const colorClass =
@@ -23,7 +25,7 @@ export function QuotaBadge({ dailyUsed, dailyLimit }: QuotaBadgeProps) {
       variant="outline"
       className={cn('border-none text-xs font-medium', colorClass)}
     >
-      {dailyUsed}/{dailyLimit} today
+      {dailyUsed}/{dailyLimit} {dictionary.nav.quotaToday}
     </Badge>
   )
 }

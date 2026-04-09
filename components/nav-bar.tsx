@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Wand2, ImagePlus, Images, LogOut } from 'lucide-react'
+import { LanguageToggle } from '@/components/language-toggle'
+import { useLocale } from '@/components/locale-provider'
+import { BRAND_NAME } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -22,12 +25,6 @@ interface NavBarProps {
   quota: { dailyUsed: number; dailyLimit: number }
 }
 
-const navLinks = [
-  { href: '/generate', label: 'Generate', icon: Wand2 },
-  { href: '/edit', label: 'Edit', icon: ImagePlus },
-  { href: '/gallery', label: 'Gallery', icon: Images },
-] as const
-
 function getInitials(email: string, displayName?: string): string {
   if (displayName) {
     return displayName
@@ -42,6 +39,13 @@ function getInitials(email: string, displayName?: string): string {
 
 export function NavBar({ user, quota }: NavBarProps) {
   const pathname = usePathname()
+  const { dictionary } = useLocale()
+
+  const navLinks = [
+    { href: '/generate', label: dictionary.nav.generate, icon: Wand2 },
+    { href: '/edit', label: dictionary.nav.edit, icon: ImagePlus },
+    { href: '/gallery', label: dictionary.nav.gallery, icon: Images },
+  ] as const
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -52,7 +56,7 @@ export function NavBar({ user, quota }: NavBarProps) {
             className="flex items-center gap-2 text-lg font-semibold tracking-tight"
           >
             <Wand2 className="size-5 text-primary" />
-            <span>Image Studio</span>
+            <span>{BRAND_NAME}</span>
           </Link>
 
           <nav className="flex items-center gap-1 overflow-x-auto">
@@ -78,6 +82,7 @@ export function NavBar({ user, quota }: NavBarProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <LanguageToggle className="hidden sm:inline-flex" />
           <QuotaBadge
             dailyUsed={quota.dailyUsed}
             dailyLimit={quota.dailyLimit}
@@ -103,7 +108,7 @@ export function NavBar({ user, quota }: NavBarProps) {
                 onClick={() => signOut({ callbackUrl: '/login' })}
               >
                 <LogOut className="size-4" />
-                Log out
+                {dictionary.nav.logout}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

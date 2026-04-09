@@ -11,13 +11,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
     }
 
+    const normalizedEmail = (email as string).trim().toLowerCase()
+
     if (password.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
     }
 
     // Check existing user
     const existing = await db.query.users.findFirst({
-      where: (users, { eq }) => eq(users.email, email),
+      where: (users, { eq }) => eq(users.email, normalizedEmail),
     })
 
     if (existing) {
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     await db.insert(users).values({
-      email,
+      email: normalizedEmail,
       name: name || null,
       password: hashedPassword,
     })

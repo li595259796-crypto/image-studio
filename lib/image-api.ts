@@ -49,7 +49,7 @@ async function callApi(messages: ApiMessage[]): Promise<ApiResponse> {
     })
 
     if (!response.ok) {
-      const body = await response.text()
+      await response.text() // consume body
       throw new Error(`Image generation failed (status ${response.status})`)
     }
 

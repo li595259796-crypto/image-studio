@@ -28,10 +28,7 @@ export function EditForm() {
   const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
-    if (!isPending) {
-      setElapsed(0)
-      return
-    }
+    if (!isPending) return
     const start = Date.now()
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - start) / 1000))
@@ -81,8 +78,22 @@ export function EditForm() {
     }
   }
 
+  async function handleDownload(url: string, filename: string) {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setElapsed(0)
     const formData = new FormData(e.currentTarget)
 
     if (files[0]) {
@@ -133,6 +144,7 @@ export function EditForm() {
               <div className="flex gap-4">
                 {files.map((f, i) => (
                   <div key={f.preview} className="group relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={f.preview}
                       alt={`Upload ${i + 1}`}
@@ -214,6 +226,7 @@ export function EditForm() {
       {result?.success && result.data && (
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={result.data.imageUrl}
               alt="Edited image"
@@ -223,15 +236,7 @@ export function EditForm() {
           <Button
             variant="outline"
             className="gap-2"
-            render={
-              <a
-                href={result.data.imageUrl}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Download edited image"
-              />
-            }
+            onClick={() => handleDownload(result.data!.imageUrl, `edited-${result.data!.imageId}.png`)}
           >
             <Download className="size-4" />
             Download

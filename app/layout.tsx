@@ -1,8 +1,10 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { SessionProvider } from "next-auth/react";
-import { Toaster } from "sonner";
-import "./globals.css";
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { SessionProvider } from 'next-auth/react'
+import { Toaster } from 'sonner'
+import { LocaleProvider } from '@/components/locale-provider'
+import { BRAND_NAME } from '@/lib/i18n'
+import './globals.css'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,26 +17,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Image Studio",
-  description: "AI-powered image generation and editing",
-};
+  title: BRAND_NAME,
+  description: 'AI-powered image generation and editing for fast visual ideas.',
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html
-      lang="en"
+      lang="zh"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <SessionProvider>
-          {children}
+          <LocaleProvider>{children}</LocaleProvider>
         </SessionProvider>
         <Toaster richColors position="top-right" />
       </body>
     </html>
-  );
+  )
 }

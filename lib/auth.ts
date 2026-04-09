@@ -19,10 +19,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.email || !credentials?.password) return null
 
         try {
+          const normalizedEmail = (credentials.email as string).trim().toLowerCase()
           const user = await db
             .select()
             .from(users)
-            .where(eq(users.email, credentials.email as string))
+            .where(eq(users.email, normalizedEmail))
             .limit(1)
             .then((rows) => rows[0])
 

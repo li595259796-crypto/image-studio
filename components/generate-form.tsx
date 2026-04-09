@@ -5,7 +5,6 @@ import { Wand2, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
 import { generateImageAction } from '@/app/actions/generate'
 import type { ActionResult } from '@/lib/types'
 
@@ -26,10 +25,7 @@ export function GenerateForm() {
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
-    if (!isPending) {
-      setElapsed(0)
-      return
-    }
+    if (!isPending) return
     const start = Date.now()
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - start) / 1000))
@@ -37,8 +33,22 @@ export function GenerateForm() {
     return () => clearInterval(interval)
   }, [isPending])
 
+  async function handleDownload(url: string, filename: string) {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setElapsed(0)
     const formData = new FormData(e.currentTarget)
     formData.set('aspectRatio', aspectRatio)
     formData.set('quality', quality)
@@ -129,6 +139,7 @@ export function GenerateForm() {
       {result?.success && result.data && (
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={result.data.imageUrl}
               alt="Generated image"
@@ -138,15 +149,7 @@ export function GenerateForm() {
           <Button
             variant="outline"
             className="gap-2"
-            render={
-              <a
-                href={result.data.imageUrl}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Download generated image"
-              />
-            }
+            onClick={() => handleDownload(result.data!.imageUrl, `generated-${result.data!.imageId}.png`)}
           >
             <Download className="size-4" />
             Download

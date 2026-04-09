@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useTransition } from 'react'
+import { useEffect, useRef, useState, useCallback, useTransition } from 'react'
 import { ImageGrid } from '@/components/image-grid'
 import { getImages } from '@/app/actions/gallery'
 import type { ImageRecord } from '@/lib/types'
@@ -11,7 +11,7 @@ export default function GalleryPage() {
   const [images, setImages] = useState<ImageRecord[]>([])
   const [total, setTotal] = useState(0)
   const [isPending, startTransition] = useTransition()
-  const [initialized, setInitialized] = useState(false)
+  const loadedRef = useRef(false)
 
   const loadImages = useCallback(
     (offset: number) => {
@@ -29,11 +29,11 @@ export default function GalleryPage() {
   )
 
   useEffect(() => {
-    if (!initialized) {
+    if (!loadedRef.current) {
+      loadedRef.current = true
       loadImages(0)
-      setInitialized(true)
     }
-  }, [initialized, loadImages])
+  }, [loadImages])
 
   function handleLoadMore() {
     loadImages(images.length)
