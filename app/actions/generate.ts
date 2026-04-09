@@ -1,24 +1,22 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { generateImage } from '@/lib/image-api'
-import { uploadImage, deleteImage } from '@/lib/storage'
-import { checkQuota, recordUsage } from '@/lib/quota'
-import { insertImage } from '@/lib/db/queries'
+import { checkQuota } from '@/lib/quota'
+import { createTask, recordUsageReturningId } from '@/lib/db/queries'
+import { triggerWorker } from '@/lib/trigger-worker'
 import type { ActionResult } from '@/lib/types'
 
-interface GenerateResult {
-  imageUrl: string
-  imageId: string
+interface SubmitResult {
+  taskId: string
 }
 
 export async function generateImageAction(
   formData: FormData
-): Promise<ActionResult<GenerateResult>> {
+): Promise<ActionResult<SubmitResult>> {
   try {
     const session = await auth()
     if (!session?.user?.id) {
-      return { success: false, error: 'Authentication required' }
+      return { success: false, error: 'Authentication required', errorCode: 'auth_required' }
     }
 
     const prompt = formData.get('prompt') as string | null
@@ -58,40 +56,20 @@ export async function generateImageAction(
       }
     }
 
-    const imageBuffer = await generateImage(prompt, aspectRatio, quality)
-
-    const { url } = await uploadImage(session.user.id, imageBuffer)
-
-    const record = await insertImage({
+    const usageLogId = await recordUsageReturningId(session.user.id, 'generate')
+    const payload = JSON.stringify({ prompt, aspectRatio, quality })
+    const taskId = await createTask({
       userId: session.user.id,
       type: 'generate',
-      prompt,
-      aspectRatio,
-      quality,
-      blobUrl: url,
-      sizeBytes: imageBuffer.length,
+      payload,
+      usageLogId,
     })
 
-    // If DB insert failed but upload succeeded, clean up
-    if (!record) {
-      await deleteImage(url)
-      return { success: false, error: 'Failed to save image record' }
-    }
+    triggerWorker()
 
-    await recordUsage(session.user.id, 'generate')
-
-    return {
-      success: true,
-      data: { imageUrl: url, imageId: record.id },
-    }
+    return { success: true, data: { taskId } }
   } catch (error: unknown) {
-    const isUserFacing =
-      error instanceof Error &&
-      !error.message.includes('database') &&
-      !error.message.includes('blob')
-    const message = isUserFacing
-      ? (error as Error).message
-      : 'Failed to generate image. Please try again.'
+    const message = error instanceof Error ? error.message : 'Failed to submit task'
     return { success: false, error: message }
   }
 }
