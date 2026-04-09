@@ -11,9 +11,11 @@ import { copy } from '@/lib/i18n'
 import { getScenario, buildPrompt, type ScenarioId } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
 import { editImageAction } from '@/app/actions/edit'
+import { retryTaskAction } from '@/app/actions/tasks'
 import { showQuotaError } from '@/lib/error-toast'
-import { PostActions } from '@/components/post-actions'
+import { TaskStatus } from '@/components/task-status'
 import { RefineDialog } from '@/components/refine-dialog'
+import { useTaskPolling } from '@/hooks/use-task-polling'
 import type { ActionResult } from '@/lib/types'
 
 interface ScenarioFormProps {
@@ -21,9 +23,8 @@ interface ScenarioFormProps {
   onBack: () => void
 }
 
-interface GenerateResult {
-  imageUrl: string
-  imageId: string
+interface SubmitResult {
+  taskId: string
 }
 
 interface UploadedFile {
@@ -46,22 +47,14 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
   const [quality, setQuality] = useState(scenario.defaultQuality)
   const [files, setFiles] = useState<UploadedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [result, setResult] = useState<ActionResult<GenerateResult> | null>(null)
-  const [elapsed, setElapsed] = useState(0)
+  const [submitResult, setSubmitResult] = useState<ActionResult<SubmitResult> | null>(null)
+  const [taskId, setTaskId] = useState<string | null>(null)
+  const polling = useTaskPolling(taskId)
 
   // Get scenario-specific i18n. Each scenario key has at least { name, subtitle }.
   // Some have placeholder, styleLabel, extraLabel.
   const scenarioKey = scenarioId as keyof typeof t
   const scenarioI18n = t[scenarioKey] as Record<string, string>
-
-  useEffect(() => {
-    if (!isPending) return
-    const start = Date.now()
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - start) / 1000))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [isPending])
 
   useEffect(() => {
     return () => {
@@ -100,7 +93,6 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
   }
 
   function handleSubmit() {
-    setElapsed(0)
     const finalPrompt = buildPrompt(scenario, description, selectedStyle)
     const formData = new FormData()
     formData.set('prompt', finalPrompt)
@@ -113,7 +105,8 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
           showQuotaError(locale, res.quota)
           return
         }
-        setResult(res)
+        setSubmitResult(res)
+        if (res.success && res.data) setTaskId(res.data.taskId)
       })
     } else {
       formData.set('aspectRatio', aspectRatio)
@@ -124,14 +117,22 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
           showQuotaError(locale, res.quota)
           return
         }
-        setResult(res)
+        setSubmitResult(res)
+        if (res.success && res.data) setTaskId(res.data.taskId)
       })
     }
   }
 
   function handleRetry() {
-    setResult(null)
-    handleSubmit()
+    if (!taskId) return
+    startTransition(async () => {
+      const res = await retryTaskAction(taskId)
+      if (res.errorCode === 'quota_exceeded' && res.quota) {
+        showQuotaError(locale, res.quota)
+        return
+      }
+      if (res.success && res.data) setTaskId(res.data.taskId)
+    })
   }
 
   function handleRefineApply(refined: string) {
@@ -143,21 +144,21 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
     ? files.length > 0 && (scenarioId === 'portrait' ? !!selectedStyle : true)
     : description.trim().length > 0
 
-  // --- Result view ---
-  if (result?.success && result.data) {
+  // --- Task status view ---
+  if (taskId && polling.status) {
     return (
       <div className="space-y-4">
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
           <ArrowLeft className="size-3.5" />
           {t.backToScenarios}
         </Button>
-        <div className="overflow-hidden rounded-xl border">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={result.data.imageUrl} alt="Generated" className="w-full object-contain" />
-        </div>
-        <PostActions
-          imageUrl={result.data.imageUrl}
-          imageId={result.data.imageId}
+        <TaskStatus
+          status={polling.status}
+          result={polling.result}
+          error={polling.error}
+          elapsed={polling.elapsed}
+          attempts={polling.attempts}
+          maxAttempts={polling.maxAttempts}
           prompt={buildPrompt(scenario, description, selectedStyle)}
           isUploadType={isUpload}
           editIntent={scenario.editIntent}
@@ -313,9 +314,9 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
       />
 
       {/* Error display */}
-      {result && !result.success && result.errorCode !== 'quota_exceeded' && (
+      {submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded' && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {result.error}
+          {submitResult.error}
         </div>
       )}
 
@@ -329,7 +330,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
         {isPending ? (
           <>
             <Loader2 className="size-4 animate-spin" />
-            {t.generatingButton} {elapsed}s
+            {t.generatingButton}
           </>
         ) : (
           t.generateButton

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition, useEffect } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { Wand2, Loader2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -9,17 +9,18 @@ import { useLocale } from '@/components/locale-provider'
 import { copy } from '@/lib/i18n'
 import { getScenario } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
+import { retryTaskAction } from '@/app/actions/tasks'
 import { showQuotaError } from '@/lib/error-toast'
-import { PostActions } from '@/components/post-actions'
+import { TaskStatus } from '@/components/task-status'
 import { RefineDialog } from '@/components/refine-dialog'
+import { useTaskPolling } from '@/hooks/use-task-polling'
 import type { ActionResult } from '@/lib/types'
 
 const aspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const
 const qualities = ['1K', '2K', '4K'] as const
 
-interface GenerateResult {
-  imageUrl: string
-  imageId: string
+interface SubmitResult {
+  taskId: string
 }
 
 interface GenerateFormProps {
@@ -35,24 +36,15 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
   const [prompt, setPrompt] = useState(initialPrompt ?? '')
   const [aspectRatio, setAspectRatio] = useState<string>(initialAspectRatio ?? '16:9')
   const [quality, setQuality] = useState<string>(initialQuality ?? '2K')
-  const [result, setResult] = useState<ActionResult<GenerateResult> | null>(null)
-  const [elapsed, setElapsed] = useState(0)
+  const [submitResult, setSubmitResult] = useState<ActionResult<SubmitResult> | null>(null)
+  const [taskId, setTaskId] = useState<string | null>(null)
+  const polling = useTaskPolling(taskId)
   const { locale } = useLocale()
   const t = copy[locale].scenario
   const freeformScenario = getScenario('freeform')
 
-  useEffect(() => {
-    if (!isPending) return
-    const start = Date.now()
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - start) / 1000))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [isPending])
-
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setElapsed(0)
     const formData = new FormData(e.currentTarget)
     formData.set('aspectRatio', aspectRatio)
     formData.set('quality', quality)
@@ -63,30 +55,25 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
         showQuotaError(locale, res.quota)
         return
       }
-      setResult(res)
+      setSubmitResult(res)
+      if (res.success && res.data) setTaskId(res.data.taskId)
     })
   }
 
   function handleRetry() {
-    setResult(null)
-    setElapsed(0)
-    const formData = new FormData()
-    formData.set('prompt', prompt)
-    formData.set('aspectRatio', aspectRatio)
-    formData.set('quality', quality)
-
+    if (!taskId) return
     startTransition(async () => {
-      const res = await generateImageAction(formData)
+      const res = await retryTaskAction(taskId)
       if (res.errorCode === 'quota_exceeded' && res.quota) {
         showQuotaError(locale, res.quota)
         return
       }
-      setResult(res)
+      if (res.success && res.data) setTaskId(res.data.taskId)
     })
   }
 
-  // --- Result view ---
-  if (result?.success && result.data) {
+  // --- Task status view ---
+  if (taskId && polling.status) {
     return (
       <div className="space-y-4">
         {onBack && (
@@ -95,13 +82,13 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
             {t.backToScenarios}
           </Button>
         )}
-        <div className="overflow-hidden rounded-xl border">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={result.data.imageUrl} alt="Generated image" className="w-full object-contain" />
-        </div>
-        <PostActions
-          imageUrl={result.data.imageUrl}
-          imageId={result.data.imageId}
+        <TaskStatus
+          status={polling.status}
+          result={polling.result}
+          error={polling.error}
+          elapsed={polling.elapsed}
+          attempts={polling.attempts}
+          maxAttempts={polling.maxAttempts}
           prompt={prompt}
           isUploadType={false}
           editIntent={freeformScenario.editIntent}
@@ -186,7 +173,7 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              {t.generatingButton} {elapsed}s
+              {t.generatingButton}
             </>
           ) : (
             <>
@@ -197,9 +184,9 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
         </Button>
       </form>
 
-      {result && !result.success && result.errorCode !== 'quota_exceeded' && (
+      {submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded' && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {result.error}
+          {submitResult.error}
         </div>
       )}
     </div>
