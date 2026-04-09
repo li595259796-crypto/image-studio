@@ -1,5 +1,7 @@
 import { EditForm } from '@/components/edit-form'
 
+export const maxDuration = 60
+
 export default function EditPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">

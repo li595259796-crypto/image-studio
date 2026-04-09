@@ -1,5 +1,7 @@
 import { GenerateForm } from '@/components/generate-form'
 
+export const maxDuration = 60
+
 export default function GeneratePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
