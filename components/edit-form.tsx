@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ImagePlus, X, Loader2, Upload } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -86,13 +87,16 @@ export function EditForm() {
     []
   )
 
+  const preloadAttemptedRef = useRef(false)
+
   useEffect(() => {
     const sourceUrl = getPreloadableSourceUrl(searchParams.get('sourceUrl'), files.length)
 
-    if (!sourceUrl) {
+    if (!sourceUrl || preloadAttemptedRef.current) {
       return
     }
 
+    preloadAttemptedRef.current = true
     const preloadSourceUrl = sourceUrl
     let cancelled = false
 
@@ -118,7 +122,7 @@ export function EditForm() {
 
         addFiles([file], { onlyIfEmpty: true })
       } catch {
-        // Silent fallback: users can still upload manually.
+        toast.error('无法加载源图片，请手动上传')
       } finally {
         if (!cancelled) {
           setIsPreloadingSource(false)
@@ -131,7 +135,7 @@ export function EditForm() {
     return () => {
       cancelled = true
     }
-  }, [addFiles, files.length, searchParams])
+  }, [addFiles, searchParams])
 
   function removeFile(index: number) {
     setFiles((prev) => {
