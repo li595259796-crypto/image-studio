@@ -105,7 +105,7 @@ export function NavBar({ user, quota }: NavBarProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="cursor-pointer"
-                onClick={() => signOut({ callbackUrl: '/login' })}
+                onClick={() => signOut({ callbackUrl: '/login', redirect: true })}
               >
                 <LogOut className="size-4" />
                 {dictionary.nav.logout}
