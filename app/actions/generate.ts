@@ -1,5 +1,7 @@
 'use server'
 
+export const maxDuration = 60
+
 import { auth } from '@/lib/auth'
 import { generateImage } from '@/lib/image-api'
 import { uploadImage, deleteImage } from '@/lib/storage'
