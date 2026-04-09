@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Image from 'next/image'
-import { Download, Trash2, Loader2 } from 'lucide-react'
+import { Download, Trash2, Loader2, Clipboard, Pencil, Copy } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { useLocale } from '@/components/locale-provider'
+import { copy } from '@/lib/i18n'
 import { deleteImageAction } from '@/app/actions/gallery'
 import type { ImageRecord } from '@/lib/types'
 
@@ -42,6 +46,12 @@ export function ImageViewer({
 }: ImageViewerProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting, startTransition] = useTransition()
+  const router = useRouter()
+  const { locale } = useLocale()
+  const gt = copy[locale].gallery
+  const pt = copy[locale].postAction
+
+  const isUploadType = image?.type === 'edit'
 
   if (!image) return null
 
@@ -72,6 +82,30 @@ export function ImageViewer({
         setConfirmDelete(false)
       }
     })
+  }
+
+  function handleCopyPrompt() {
+    navigator.clipboard.writeText(image!.prompt)
+    toast.success(pt.copiedToast)
+  }
+
+  function handleCopyToGenerate() {
+    const params = new URLSearchParams({
+      prompt: image!.prompt,
+      ...(image!.aspectRatio ? { aspectRatio: image!.aspectRatio } : {}),
+      ...(image!.quality ? { quality: image!.quality } : {}),
+    })
+    router.push(`/generate?mode=freeform&${params.toString()}`)
+    onOpenChange(false)
+  }
+
+  function handleContinueEdit() {
+    const params = new URLSearchParams({
+      sourceUrl: image!.blobUrl,
+      prompt: '保留主体，优化背景和光线',
+    })
+    router.push(`/edit?${params.toString()}`)
+    onOpenChange(false)
   }
 
   return (
@@ -116,7 +150,35 @@ export function ImageViewer({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => handleDownload(image.blobUrl ?? '', `image-${image.id}.png`)}
+          >
+            <Download className="size-3.5" />
+            {pt.download}
+          </Button>
+
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopyPrompt}>
+            <Clipboard className="size-3.5" />
+            {gt.copyPrompt}
+          </Button>
+
+          {/* Only show "Copy to Generate" for pure generate results */}
+          {!isUploadType && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopyToGenerate}>
+              <Copy className="size-3.5" />
+              {gt.copyToGenerate}
+            </Button>
+          )}
+
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleContinueEdit}>
+            <Pencil className="size-3.5" />
+            {gt.continueEdit}
+          </Button>
+
           <Button
             variant="destructive"
             size="sm"
@@ -130,15 +192,6 @@ export function ImageViewer({
               <Trash2 className="size-3.5" />
             )}
             {confirmDelete ? 'Confirm Delete' : 'Delete'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => handleDownload(image.blobUrl ?? '', `image-${image.id}.png`)}
-          >
-            <Download className="size-3.5" />
-            Download
           </Button>
         </DialogFooter>
       </DialogContent>
