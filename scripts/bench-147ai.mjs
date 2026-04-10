@@ -44,7 +44,7 @@ function loadEnvLocal() {
 
 function quantile(sortedNums, q) {
   if (sortedNums.length === 0) return NaN
-  const idx = Math.min(sortedNums.length - 1, Math.floor((sortedNums.length - 1) * q))
+  const idx = Math.min(sortedNums.length - 1, Math.round((sortedNums.length - 1) * q))
   return sortedNums[idx]
 }
 
