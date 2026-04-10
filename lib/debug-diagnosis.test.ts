@@ -3,11 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 // @ts-expect-error Direct .ts import keeps node --test working in this repo.
-import {
-  validateDebugAuth,
-  parseSleepSeconds,
-  validateBlobUrl,
-} from './debug-diagnosis.ts'
+import { validateDebugAuth, parseSleepSeconds, validateBlobUrl } from './debug-diagnosis.ts'
 
 test('validateDebugAuth returns 503 when secret env var is missing', () => {
   assert.deepEqual(
