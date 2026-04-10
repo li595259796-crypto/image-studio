@@ -105,7 +105,7 @@ export function ImageViewer({
   function handleContinueEdit() {
     const params = new URLSearchParams({
       sourceUrl: currentImage.blobUrl,
-      prompt: '保留主体，优化背景和光线',
+      prompt: gt.defaultEditIntent,
     })
     router.push(`/edit?${params.toString()}`)
     onOpenChange(false)

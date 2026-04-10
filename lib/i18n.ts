@@ -72,6 +72,8 @@ interface LocaleCopy {
     waitingTitle: string
     waitingDescription: string
     requestTimeout: string
+    generateFailed: string
+    editFailed: string
   }
   postAction: {
     download: string
@@ -118,8 +120,11 @@ interface LocaleCopy {
   }
   gallery: {
     pageTitle: string
+    emptyTitle: string
     emptyDescription: string
     collectionDescription: string
+    loadMore: string
+    defaultEditIntent: string
     copyToGenerate: string
     copyPrompt: string
     continueEdit: string
@@ -285,13 +290,15 @@ export const copy: Record<Locale, LocaleCopy> = {
       waitingTitle: '正在生成图片',
       waitingDescription: '通常需要 30-60 秒。请保持页面打开，我们会在完成后展示结果。',
       requestTimeout: '请求超时或网络错误，请稍后重试。',
+      generateFailed: '生成失败，请稍后重试。',
+      editFailed: '编辑失败，请稍后重试。',
     },
     postAction: {
       download: '下载',
       continueEdit: '继续编辑',
       retry: '再试一次',
       retryWithSource: '再试一次（含原图）',
-      copyPrompt: '复制 Prompt',
+      copyPrompt: '复制提示词',
       copyToGenerate: '复制到生成页',
       quotaNote: '消耗 1 次额度',
       copiedToast: '已复制到剪贴板',
@@ -331,10 +338,13 @@ export const copy: Record<Locale, LocaleCopy> = {
     },
     gallery: {
       pageTitle: '画廊',
+      emptyTitle: '还没有图片',
       emptyDescription: '你的生成和编辑图片会显示在这里。',
       collectionDescription: '张图片已保存',
+      loadMore: '加载更多',
+      defaultEditIntent: '保留主体，优化背景和光线',
       copyToGenerate: '复制到生成页',
-      copyPrompt: '复制 Prompt',
+      copyPrompt: '复制提示词',
       continueEdit: '继续编辑',
       detailsTitle: '图片详情',
       detailsDescription: '查看和管理图片',
@@ -496,6 +506,8 @@ export const copy: Record<Locale, LocaleCopy> = {
       waitingTitle: 'Creating your image',
       waitingDescription: 'This usually takes 30-60 seconds. Keep this page open and the result will appear here.',
       requestTimeout: 'Request timed out or network error. Please try again.',
+      generateFailed: 'Failed to generate image. Please try again.',
+      editFailed: 'Failed to edit image. Please try again.',
     },
     postAction: {
       download: 'Download',
@@ -542,8 +554,11 @@ export const copy: Record<Locale, LocaleCopy> = {
     },
     gallery: {
       pageTitle: 'Gallery',
+      emptyTitle: 'No images yet',
       emptyDescription: 'Your generated and edited images will appear here.',
       collectionDescription: 'images saved',
+      loadMore: 'Load More',
+      defaultEditIntent: 'Keep the subject, improve the background and lighting',
       copyToGenerate: 'Copy to Generate',
       copyPrompt: 'Copy Prompt',
       continueEdit: 'Continue Edit',

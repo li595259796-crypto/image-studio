@@ -85,6 +85,10 @@ export async function generateImageAction(
     return { success: true, data: { imageId: record.id, blobUrl: url } }
   } catch (err: unknown) {
     tlog(`TX error: ${err instanceof Error ? err.message : String(err)}`, t0)
-    return { success: false, error: 'Failed to generate image. Please try again.' }
+    return {
+      success: false,
+      error: 'Failed to generate image. Please try again.',
+      errorCode: 'generation_failed',
+    }
   }
 }

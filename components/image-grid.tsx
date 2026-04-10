@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ImageCard } from '@/components/image-card'
 import { ImageViewer } from '@/components/image-viewer'
+import { useLocale } from '@/components/locale-provider'
 import type { ImageRecord } from '@/lib/types'
 
 interface ImageGridProps {
@@ -27,6 +28,8 @@ export function ImageGrid({
 }: ImageGridProps) {
   const [selectedImage, setSelectedImage] = useState<ImageRecord | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
+  const { dictionary } = useLocale()
+  const t = dictionary.gallery
 
   function handleCardClick(image: ImageRecord) {
     setSelectedImage(image)
@@ -53,10 +56,10 @@ export function ImageGrid({
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
         <p className="text-lg font-medium text-muted-foreground">
-          No images yet
+          {t.emptyTitle}
         </p>
         <p className="text-sm text-muted-foreground/70">
-          Generate or edit your first image to see it here.
+          {t.emptyDescription}
         </p>
       </div>
     )
@@ -92,7 +95,7 @@ export function ImageGrid({
             className="gap-2"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Load More
+            {t.loadMore}
           </Button>
         </div>
       )}

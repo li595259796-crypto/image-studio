@@ -108,6 +108,10 @@ export async function editImageAction(
     return { success: true, data: { imageId: record.id, blobUrl: url } }
   } catch (err: unknown) {
     tlog(`TX error: ${err instanceof Error ? err.message : String(err)}`, t0)
-    return { success: false, error: 'Failed to edit image. Please try again.' }
+    return {
+      success: false,
+      error: 'Failed to edit image. Please try again.',
+      errorCode: 'edit_failed',
+    }
   }
 }

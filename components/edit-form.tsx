@@ -196,7 +196,9 @@ export function EditForm() {
   const result = submitResult?.success ? submitResult.data : undefined
   const errorMessage =
     submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
-      ? submitResult.error
+      ? submitResult.errorCode === 'edit_failed'
+        ? t.editFailed
+        : submitResult.error
       : null
 
   return (

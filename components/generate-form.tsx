@@ -73,7 +73,9 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
   const result = submitResult?.success ? submitResult.data : undefined
   const errorMessage =
     submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
-      ? submitResult.error
+      ? submitResult.errorCode === 'generation_failed'
+        ? t.generateFailed
+        : submitResult.error
       : null
 
   return (

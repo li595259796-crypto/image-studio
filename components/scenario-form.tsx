@@ -157,7 +157,11 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
   const result = submitResult?.success ? submitResult.data : undefined
   const errorMessage =
     submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
-      ? submitResult.error
+      ? submitResult.errorCode === 'edit_failed'
+        ? t.editFailed
+        : submitResult.errorCode === 'generation_failed'
+          ? t.generateFailed
+          : submitResult.error
       : null
 
   return (

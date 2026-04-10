@@ -28,7 +28,15 @@ test('provides polished creation and gallery copy in both languages', () => {
     assert.ok(copy[locale].scenario.waitingTitle)
     assert.ok(copy[locale].scenario.waitingDescription)
     assert.ok(copy[locale].scenario.requestTimeout)
+    assert.ok(copy[locale].scenario.generateFailed)
+    assert.ok(copy[locale].scenario.editFailed)
     assert.ok(copy[locale].gallery.pageTitle)
+    assert.ok(copy[locale].gallery.emptyTitle)
     assert.ok(copy[locale].gallery.emptyDescription)
+    assert.ok(copy[locale].gallery.loadMore)
+    assert.ok(copy[locale].gallery.defaultEditIntent)
   }
+
+  assert.equal(copy.zh.postAction.copyPrompt, '复制提示词')
+  assert.equal(copy.zh.gallery.copyPrompt, '复制提示词')
 })
