@@ -1,6 +1,6 @@
 import { EditForm } from '@/components/edit-form'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 export default function EditPage() {
   return (
