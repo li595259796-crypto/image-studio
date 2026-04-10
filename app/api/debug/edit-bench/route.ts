@@ -76,7 +76,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let fixtureBytes: number
   let fixtureFetchMs: number
   try {
-    const fixtureResp = await fetch(urlCheck.url.toString())
+    const fixtureResp = await fetch(urlCheck.url.toString(), { redirect: 'error' })
     if (!fixtureResp.ok) {
       return NextResponse.json(
         {
