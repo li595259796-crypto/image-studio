@@ -9,19 +9,13 @@ import { useLocale } from '@/components/locale-provider'
 import { copy } from '@/lib/i18n'
 import { getScenario } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
-import { retryTaskAction } from '@/app/actions/tasks'
 import { showQuotaError } from '@/lib/error-toast'
-import { TaskStatus } from '@/components/task-status'
+import { PostActions } from '@/components/post-actions'
 import { RefineDialog } from '@/components/refine-dialog'
-import { useTaskPolling } from '@/hooks/use-task-polling'
-import type { ActionResult } from '@/lib/types'
+import type { ActionResult, ImageResult } from '@/lib/types'
 
 const aspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const
 const qualities = ['1K', '2K', '4K'] as const
-
-interface SubmitResult {
-  taskId: string
-}
 
 interface GenerateFormProps {
   onBack?: () => void
@@ -36,70 +30,54 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
   const [prompt, setPrompt] = useState(initialPrompt ?? '')
   const [aspectRatio, setAspectRatio] = useState<string>(initialAspectRatio ?? '16:9')
   const [quality, setQuality] = useState<string>(initialQuality ?? '2K')
-  const [submitResult, setSubmitResult] = useState<ActionResult<SubmitResult> | null>(null)
-  const [taskId, setTaskId] = useState<string | null>(null)
-  const polling = useTaskPolling(taskId)
+  const [submitResult, setSubmitResult] = useState<ActionResult<ImageResult> | null>(null)
   const { locale } = useLocale()
   const t = copy[locale].scenario
   const freeformScenario = getScenario('freeform')
+
+  function runGeneration(formData: FormData) {
+    setSubmitResult(null)
+    startTransition(async () => {
+      try {
+        const res = await generateImageAction(formData)
+        if (res.errorCode === 'quota_exceeded' && res.quota) {
+          showQuotaError(locale, res.quota)
+          return
+        }
+        setSubmitResult(res)
+      } catch {
+        setSubmitResult({
+          success: false,
+          error: locale === 'zh'
+            ? '请求超时或网络错误，请稍后重试'
+            : 'Request timed out or network error. Please try again.',
+        })
+      }
+    })
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     formData.set('aspectRatio', aspectRatio)
     formData.set('quality', quality)
-
-    startTransition(async () => {
-      const res = await generateImageAction(formData)
-      if (res.errorCode === 'quota_exceeded' && res.quota) {
-        showQuotaError(locale, res.quota)
-        return
-      }
-      setSubmitResult(res)
-      if (res.success && res.data) setTaskId(res.data.taskId)
-    })
+    runGeneration(formData)
   }
 
   function handleRetry() {
-    if (!taskId) return
-    startTransition(async () => {
-      const res = await retryTaskAction(taskId)
-      if (res.errorCode === 'quota_exceeded' && res.quota) {
-        showQuotaError(locale, res.quota)
-        return
-      }
-      if (res.success && res.data) setTaskId(res.data.taskId)
-    })
+    if (!formRef.current) return
+    const formData = new FormData(formRef.current)
+    formData.set('aspectRatio', aspectRatio)
+    formData.set('quality', quality)
+    runGeneration(formData)
   }
 
-  // --- Task status view ---
-  if (taskId && polling.status) {
-    return (
-      <div className="space-y-4">
-        {onBack && (
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
-            <ArrowLeft className="size-3.5" />
-            {t.backToScenarios}
-          </Button>
-        )}
-        <TaskStatus
-          status={polling.status}
-          result={polling.result}
-          error={polling.error}
-          elapsed={polling.elapsed}
-          attempts={polling.attempts}
-          maxAttempts={polling.maxAttempts}
-          prompt={prompt}
-          isUploadType={false}
-          editIntent={freeformScenario.editIntent}
-          onRetry={handleRetry}
-          retrying={isPending}
-        />
-      </div>
-    )
-  }
+  const result = submitResult?.success ? submitResult.data : undefined
+  const errorMessage =
+    submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
+      ? submitResult.error
+      : null
 
-  // --- Form view ---
   return (
     <div className="space-y-6">
       {onBack && (
@@ -184,9 +162,27 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
         </Button>
       </form>
 
-      {submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded' && (
+      {errorMessage && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {submitResult.error}
+          {errorMessage}
+        </div>
+      )}
+
+      {result && (
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-xl border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={result.blobUrl} alt="Generated" className="w-full object-contain" />
+          </div>
+          <PostActions
+            imageUrl={result.blobUrl}
+            imageId={result.imageId}
+            prompt={prompt}
+            isUploadType={false}
+            editIntent={freeformScenario.editIntent}
+            onRetry={handleRetry}
+            retrying={isPending}
+          />
         </div>
       )}
     </div>

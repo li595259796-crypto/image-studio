@@ -11,20 +11,14 @@ import { copy } from '@/lib/i18n'
 import { getScenario, buildPrompt, type ScenarioId } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
 import { editImageAction } from '@/app/actions/edit'
-import { retryTaskAction } from '@/app/actions/tasks'
 import { showQuotaError } from '@/lib/error-toast'
-import { TaskStatus } from '@/components/task-status'
+import { PostActions } from '@/components/post-actions'
 import { RefineDialog } from '@/components/refine-dialog'
-import { useTaskPolling } from '@/hooks/use-task-polling'
-import type { ActionResult } from '@/lib/types'
+import type { ActionResult, ImageResult } from '@/lib/types'
 
 interface ScenarioFormProps {
   scenarioId: ScenarioId
   onBack: () => void
-}
-
-interface SubmitResult {
-  taskId: string
 }
 
 interface UploadedFile {
@@ -47,9 +41,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
   const [quality, setQuality] = useState(scenario.defaultQuality)
   const [files, setFiles] = useState<UploadedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [submitResult, setSubmitResult] = useState<ActionResult<SubmitResult> | null>(null)
-  const [taskId, setTaskId] = useState<string | null>(null)
-  const polling = useTaskPolling(taskId)
+  const [submitResult, setSubmitResult] = useState<ActionResult<ImageResult> | null>(null)
 
   // Get scenario-specific i18n. Each scenario key has at least { name, subtitle }.
   // Some have placeholder, styleLabel, extraLabel.
@@ -92,47 +84,59 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
     }
   }
 
-  function handleSubmit() {
+  function runSubmission() {
     const finalPrompt = buildPrompt(scenario, description, selectedStyle)
     const formData = new FormData()
     formData.set('prompt', finalPrompt)
 
+    const timeoutError = {
+      success: false as const,
+      error:
+        locale === 'zh'
+          ? '请求超时或网络错误，请稍后重试'
+          : 'Request timed out or network error. Please try again.',
+    }
+
+    setSubmitResult(null)
+
     if (scenario.inputType === 'upload') {
       if (files[0]) formData.set('image1', files[0].file)
       startTransition(async () => {
-        const res = await editImageAction(formData)
-        if (res.errorCode === 'quota_exceeded' && res.quota) {
-          showQuotaError(locale, res.quota)
-          return
+        try {
+          const res = await editImageAction(formData)
+          if (res.errorCode === 'quota_exceeded' && res.quota) {
+            showQuotaError(locale, res.quota)
+            return
+          }
+          setSubmitResult(res)
+        } catch {
+          setSubmitResult(timeoutError)
         }
-        setSubmitResult(res)
-        if (res.success && res.data) setTaskId(res.data.taskId)
       })
     } else {
       formData.set('aspectRatio', aspectRatio)
       formData.set('quality', quality)
       startTransition(async () => {
-        const res = await generateImageAction(formData)
-        if (res.errorCode === 'quota_exceeded' && res.quota) {
-          showQuotaError(locale, res.quota)
-          return
+        try {
+          const res = await generateImageAction(formData)
+          if (res.errorCode === 'quota_exceeded' && res.quota) {
+            showQuotaError(locale, res.quota)
+            return
+          }
+          setSubmitResult(res)
+        } catch {
+          setSubmitResult(timeoutError)
         }
-        setSubmitResult(res)
-        if (res.success && res.data) setTaskId(res.data.taskId)
       })
     }
   }
 
+  function handleSubmit() {
+    runSubmission()
+  }
+
   function handleRetry() {
-    if (!taskId) return
-    startTransition(async () => {
-      const res = await retryTaskAction(taskId)
-      if (res.errorCode === 'quota_exceeded' && res.quota) {
-        showQuotaError(locale, res.quota)
-        return
-      }
-      if (res.success && res.data) setTaskId(res.data.taskId)
-    })
+    runSubmission()
   }
 
   function handleRefineApply(refined: string) {
@@ -144,32 +148,12 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
     ? files.length > 0 && (scenarioId === 'portrait' ? !!selectedStyle : true)
     : description.trim().length > 0
 
-  // --- Task status view ---
-  if (taskId && polling.status) {
-    return (
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
-          <ArrowLeft className="size-3.5" />
-          {t.backToScenarios}
-        </Button>
-        <TaskStatus
-          status={polling.status}
-          result={polling.result}
-          error={polling.error}
-          elapsed={polling.elapsed}
-          attempts={polling.attempts}
-          maxAttempts={polling.maxAttempts}
-          prompt={buildPrompt(scenario, description, selectedStyle)}
-          isUploadType={isUpload}
-          editIntent={scenario.editIntent}
-          onRetry={handleRetry}
-          retrying={isPending}
-        />
-      </div>
-    )
-  }
+  const result = submitResult?.success ? submitResult.data : undefined
+  const errorMessage =
+    submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
+      ? submitResult.error
+      : null
 
-  // --- Form view ---
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -213,6 +197,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
                 />
                 <button
                   type="button"
+                  aria-label="Remove image"
                   onClick={(e) => { e.stopPropagation(); removeFile() }}
                   className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
                 >
@@ -314,9 +299,9 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
       />
 
       {/* Error display */}
-      {submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded' && (
+      {errorMessage && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {submitResult.error}
+          {errorMessage}
         </div>
       )}
 
@@ -336,6 +321,25 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
           t.generateButton
         )}
       </Button>
+
+      {/* Result */}
+      {result && (
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-xl border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={result.blobUrl} alt="Generated" className="w-full object-contain" />
+          </div>
+          <PostActions
+            imageUrl={result.blobUrl}
+            imageId={result.imageId}
+            prompt={buildPrompt(scenario, description, selectedStyle)}
+            isUploadType={isUpload}
+            editIntent={scenario.editIntent}
+            onRetry={handleRetry}
+            retrying={isPending}
+          />
+        </div>
+      )}
     </div>
   )
 }

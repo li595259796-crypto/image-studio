@@ -10,18 +10,11 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { editImageAction } from '@/app/actions/edit'
-import { retryTaskAction } from '@/app/actions/tasks'
 import { useLocale } from '@/components/locale-provider'
 import { showQuotaError } from '@/lib/error-toast'
-import { TaskStatus } from '@/components/task-status'
-import { PendingTaskBanner } from '@/components/pending-task-banner'
-import { useTaskPolling } from '@/hooks/use-task-polling'
+import { PostActions } from '@/components/post-actions'
 import { getPreloadableSourceUrl } from '@/lib/edit-source'
-import type { ActionResult } from '@/lib/types'
-
-interface SubmitResult {
-  taskId: string
-}
+import type { ActionResult, ImageResult } from '@/lib/types'
 
 interface UploadedFile {
   file: File
@@ -32,11 +25,10 @@ export function EditForm() {
   const searchParams = useSearchParams()
   const { locale } = useLocale()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
   const [files, setFiles] = useState<UploadedFile[]>([])
-  const [submitResult, setSubmitResult] = useState<ActionResult<SubmitResult> | null>(null)
-  const [taskId, setTaskId] = useState<string | null>(null)
-  const polling = useTaskPolling(taskId)
+  const [submitResult, setSubmitResult] = useState<ActionResult<ImageResult> | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isPreloadingSource, setIsPreloadingSource] = useState(false)
   const [prompt, setPrompt] = useState('')
@@ -148,15 +140,24 @@ export function EditForm() {
     }
   }
 
-  function handleRetry() {
-    if (!taskId) return
+  function runEdit(formData: FormData) {
+    setSubmitResult(null)
     startTransition(async () => {
-      const res = await retryTaskAction(taskId)
-      if (res.errorCode === 'quota_exceeded' && res.quota) {
-        showQuotaError(locale, res.quota)
-        return
+      try {
+        const res = await editImageAction(formData)
+        if (res.errorCode === 'quota_exceeded' && res.quota) {
+          showQuotaError(locale, res.quota)
+          return
+        }
+        setSubmitResult(res)
+      } catch {
+        setSubmitResult({
+          success: false,
+          error: locale === 'zh'
+            ? '请求超时或网络错误，请稍后重试'
+            : 'Request timed out or network error. Please try again.',
+        })
       }
-      if (res.success && res.data) setTaskId(res.data.taskId)
     })
   }
 
@@ -171,21 +172,26 @@ export function EditForm() {
       formData.set('image2', files[1].file)
     }
 
-    startTransition(async () => {
-      const res = await editImageAction(formData)
-      if (res.errorCode === 'quota_exceeded' && res.quota) {
-        showQuotaError(locale, res.quota)
-        return
-      }
-      setSubmitResult(res)
-      if (res.success && res.data) setTaskId(res.data.taskId)
-    })
+    runEdit(formData)
   }
+
+  function handleRetry() {
+    if (!formRef.current) return
+    const formData = new FormData(formRef.current)
+    if (files[0]) formData.set('image1', files[0].file)
+    if (files[1]) formData.set('image2', files[1].file)
+    runEdit(formData)
+  }
+
+  const result = submitResult?.success ? submitResult.data : undefined
+  const errorMessage =
+    submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
+      ? submitResult.error
+      : null
 
   return (
     <div className="space-y-6">
-      <PendingTaskBanner taskType="edit" onTaskFound={setTaskId} />
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
           <Label>Images (1-2)</Label>
           <div
@@ -301,26 +307,28 @@ export function EditForm() {
         </Button>
       </form>
 
-      {submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded' && (
+      {errorMessage && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {submitResult.error}
+          {errorMessage}
         </div>
       )}
 
-      {taskId && polling.status && (
-        <TaskStatus
-          status={polling.status}
-          result={polling.result}
-          error={polling.error}
-          elapsed={polling.elapsed}
-          attempts={polling.attempts}
-          maxAttempts={polling.maxAttempts}
-          prompt={prompt}
-          isUploadType={true}
-          editIntent="保留主体，优化背景和光线"
-          onRetry={handleRetry}
-          retrying={isPending}
-        />
+      {result && (
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-xl border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={result.blobUrl} alt="Edited" className="w-full object-contain" />
+          </div>
+          <PostActions
+            imageUrl={result.blobUrl}
+            imageId={result.imageId}
+            prompt={prompt}
+            isUploadType={true}
+            editIntent="保留主体，优化背景和光线"
+            onRetry={handleRetry}
+            retrying={isPending}
+          />
+        </div>
       )}
     </div>
   )

@@ -1,3 +1,6 @@
+// FROZEN (P4 async rollback): worker route kept for future re-activation.
+// After the sync rollback on 2026-04-10 no client code triggers this route,
+// so it will always return {processed: 0} unless called manually with WORKER_SECRET.
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { runWorkerLoop } from '@/lib/task-worker'

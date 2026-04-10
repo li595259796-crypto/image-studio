@@ -2,17 +2,14 @@
 
 import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
-import { createTask, recordUsageReturningId } from '@/lib/db/queries'
-import { triggerWorker } from '@/lib/trigger-worker'
-import type { ActionResult } from '@/lib/types'
-
-interface SubmitResult {
-  taskId: string
-}
+import { generateImage } from '@/lib/image-api'
+import { uploadImage } from '@/lib/storage'
+import { insertImage, recordUsage } from '@/lib/db/queries'
+import type { ActionResult, ImageResult } from '@/lib/types'
 
 export async function generateImageAction(
   formData: FormData
-): Promise<ActionResult<SubmitResult>> {
+): Promise<ActionResult<ImageResult>> {
   try {
     const session = await auth()
     if (!session?.user?.id) {
@@ -56,19 +53,23 @@ export async function generateImageAction(
       }
     }
 
-    const usageLogId = await recordUsageReturningId(session.user.id, 'generate')
-    const payload = JSON.stringify({ prompt, aspectRatio, quality })
-    const taskId = await createTask({
+    const imageBuffer = await generateImage(prompt, aspectRatio, quality)
+    const { url } = await uploadImage(session.user.id, imageBuffer)
+
+    const record = await insertImage({
       userId: session.user.id,
       type: 'generate',
-      payload,
-      usageLogId,
+      prompt,
+      aspectRatio,
+      quality,
+      blobUrl: url,
+      sizeBytes: imageBuffer.length,
     })
 
-    await triggerWorker()
+    await recordUsage(session.user.id, 'generate')
 
-    return { success: true, data: { taskId } }
+    return { success: true, data: { imageId: record.id, blobUrl: url } }
   } catch {
-    return { success: false, error: 'Failed to submit generation task. Please try again.' }
+    return { success: false, error: 'Failed to generate image. Please try again.' }
   }
 }

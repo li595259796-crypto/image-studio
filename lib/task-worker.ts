@@ -1,3 +1,6 @@
+// FROZEN (P4 async rollback): worker engine kept for future re-activation.
+// No sync code path uses this; only /api/worker/process and /api/cron/process-tasks
+// still import it, but those routes are orphaned without a client trigger.
 import { generateImage, editImage } from '@/lib/image-api'
 import { uploadImage } from '@/lib/storage'
 import { insertImage, claimNextTask, saveTaskResult, markTaskCompleted, markTaskRetryable, markTaskFailed, deleteUsageLog } from '@/lib/db/queries'

@@ -1,3 +1,5 @@
+// FROZEN (P4 async rollback): polling hook kept for future re-activation.
+// No live component uses this after the sync rollback on 2026-04-10.
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'

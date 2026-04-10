@@ -52,3 +52,8 @@ export interface EditTaskPayload {
   prompt: string
   sourceImageUrls: string[]
 }
+
+export interface ImageResult {
+  imageId: string
+  blobUrl: string
+}

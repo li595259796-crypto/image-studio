@@ -1,3 +1,5 @@
+// FROZEN (P4 async rollback): task-status view kept for future re-activation.
+// Not rendered by any live form after the sync rollback on 2026-04-10.
 'use client'
 
 import { Loader2, RefreshCw, AlertCircle } from 'lucide-react'

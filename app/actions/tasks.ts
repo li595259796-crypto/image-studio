@@ -1,23 +1,34 @@
+// FROZEN (P4 async rollback): This file is part of the async task queue
+// that was rolled back on 2026-04-10 in favor of sync actions on Vercel Hobby.
+// Kept in tree for future re-activation (see feedback_sync_over_async_mvp.md).
+// No live UI code references these actions.
 'use server'
 
 import { auth } from '@/lib/auth'
-import { getTaskById, getRecentPendingTaskByType, resetTaskForRetry, recordUsageReturningId } from '@/lib/db/queries'
+import {
+  getTaskById,
+  getRecentPendingTaskByType,
+  recoverZombieTasks,
+  resetTaskForRetry,
+  recordUsageReturningId,
+} from '@/lib/db/queries'
 import { checkQuota } from '@/lib/quota'
 import { triggerWorker } from '@/lib/trigger-worker'
+import { getTaskRecoveryAction } from '@/lib/task-recovery'
 import type { ActionResult, TaskStatusResult } from '@/lib/types'
 
-const PENDING_STALE_THRESHOLD_MS = 15 * 1000
-const ZOMBIE_THRESHOLD_MS = 10 * 60 * 1000
-
-function shouldReKick(task: { status: string; createdAt: Date; updatedAt: Date }): boolean {
-  const now = Date.now()
-  if (task.status === 'pending' && now - task.createdAt.getTime() > PENDING_STALE_THRESHOLD_MS) {
-    return true
+async function recoverAndKickIfNeeded(task: {
+  status: string
+  createdAt: Date
+  updatedAt: Date
+}): Promise<void> {
+  const action = getTaskRecoveryAction(task)
+  if (action === 'recover-and-kick') {
+    await recoverZombieTasks()
+    await triggerWorker()
+  } else if (action === 'kick') {
+    await triggerWorker()
   }
-  if (task.status === 'processing' && now - task.updatedAt.getTime() > ZOMBIE_THRESHOLD_MS) {
-    return true
-  }
-  return false
 }
 
 export async function getTaskStatus(
@@ -29,14 +40,17 @@ export async function getTaskStatus(
       return { success: false, error: 'Authentication required', errorCode: 'auth_required' }
     }
 
-    const task = await getTaskById(taskId, session.user.id)
+    let task = await getTaskById(taskId, session.user.id)
     if (!task) {
       return { success: false, error: 'Task not found' }
     }
 
-    // Hobby fallback: re-kick worker if task appears stuck
-    if (shouldReKick(task)) {
-      await triggerWorker()
+    // Hobby fallback: recover zombie processing tasks, then re-kick worker.
+    await recoverAndKickIfNeeded(task)
+
+    const refreshedTask = await getTaskById(taskId, session.user.id)
+    if (refreshedTask) {
+      task = refreshedTask
     }
 
     const parsed = task.result ? JSON.parse(task.result) as { imageId: string; blobUrl: string } : undefined
@@ -66,13 +80,16 @@ export async function getRecentPendingTask(
       return { success: false, error: 'Authentication required', errorCode: 'auth_required' }
     }
 
-    const task = await getRecentPendingTaskByType(session.user.id, type)
+    let task = await getRecentPendingTaskByType(session.user.id, type)
     if (!task) {
       return { success: true, data: undefined }
     }
 
-    if (shouldReKick(task)) {
-      await triggerWorker()
+    await recoverAndKickIfNeeded(task)
+
+    const refreshedTask = await getTaskById(task.id, session.user.id)
+    if (refreshedTask) {
+      task = refreshedTask
     }
 
     return {

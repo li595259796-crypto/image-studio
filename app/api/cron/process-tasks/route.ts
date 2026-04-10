@@ -1,3 +1,6 @@
+// FROZEN (P4 async rollback): cron route kept for future re-activation.
+// No vercel.json cron schedule exists, so this route is never auto-invoked
+// after the sync rollback on 2026-04-10.
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { runWorkerLoop } from '@/lib/task-worker'

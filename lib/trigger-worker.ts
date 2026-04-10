@@ -1,3 +1,5 @@
+// FROZEN (P4 async rollback): kept for future re-activation.
+// Not called by any live code after the sync rollback on 2026-04-10.
 export async function triggerWorker(): Promise<void> {
   // Use APP_URL (custom domain) — VERCEL_URL points to preview deployments
   // which are behind Vercel Authentication and will reject requests with 401

@@ -1,3 +1,5 @@
+// FROZEN (P4 async rollback): pending-task banner kept for future re-activation.
+// Not rendered by any live page after the sync rollback on 2026-04-10.
 'use client'
 
 import { useEffect, useState } from 'react'
