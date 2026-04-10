@@ -14,6 +14,7 @@ import { useLocale } from '@/components/locale-provider'
 import { showQuotaError } from '@/lib/error-toast'
 import { PostActions } from '@/components/post-actions'
 import { getPreloadableSourceUrl } from '@/lib/edit-source'
+import { compressImage } from '@/lib/image-compress'
 import type { ActionResult, ImageResult } from '@/lib/types'
 
 interface UploadedFile {
@@ -31,6 +32,7 @@ export function EditForm() {
   const [submitResult, setSubmitResult] = useState<ActionResult<ImageResult> | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isPreloadingSource, setIsPreloadingSource] = useState(false)
+  const [isCompressing, setIsCompressing] = useState(false)
   const [prompt, setPrompt] = useState('')
 
   useEffect(() => {
@@ -50,27 +52,31 @@ export function EditForm() {
   }, [])
 
   const addFiles = useCallback(
-    (newFiles: FileList | File[], options?: { onlyIfEmpty?: boolean }) => {
-      setFiles((prev) => {
-        if (options?.onlyIfEmpty && prev.length > 0) {
-          return prev
-        }
+    async (newFiles: FileList | File[], options?: { onlyIfEmpty?: boolean }) => {
+      // Snapshot current files length for slot calculation (React 19 setState callback
+      // cannot be async, so we compute outside the setter).
+      const currentCount = files.length
+      if (options?.onlyIfEmpty && currentCount > 0) return
 
-        const incoming = Array.from(newFiles)
-          .filter((f) => f.type.startsWith('image/'))
-          .slice(0, 2 - prev.length)
+      const incoming = Array.from(newFiles)
+        .filter((f) => f.type.startsWith('image/'))
+        .slice(0, 2 - currentCount)
 
-        if (incoming.length === 0) return prev
+      if (incoming.length === 0) return
 
-        const uploaded: UploadedFile[] = incoming.map((file) => ({
+      setIsCompressing(true)
+      try {
+        const compressed = await Promise.all(incoming.map((f) => compressImage(f)))
+        const uploaded: UploadedFile[] = compressed.map((file) => ({
           file,
           preview: URL.createObjectURL(file),
         }))
-
-        return [...prev, ...uploaded].slice(0, 2)
-      })
+        setFiles((prev) => [...prev, ...uploaded].slice(0, 2))
+      } finally {
+        setIsCompressing(false)
+      }
     },
-    []
+    [files.length]
   )
 
   const preloadAttemptedRef = useRef(false)
@@ -106,7 +112,7 @@ export function EditForm() {
           type: blob.type || 'image/png',
         })
 
-        addFiles([file], { onlyIfEmpty: true })
+        await addFiles([file], { onlyIfEmpty: true })
       } catch {
         toast.error('无法加载源图片，请手动上传')
       } finally {
@@ -136,7 +142,7 @@ export function EditForm() {
     e.preventDefault()
     setIsDragging(false)
     if (e.dataTransfer.files) {
-      addFiles(e.dataTransfer.files)
+      void addFiles(e.dataTransfer.files)
     }
   }
 
@@ -217,6 +223,13 @@ export function EditForm() {
                   <p className="text-sm text-muted-foreground">Loading source image...</p>
                   <Skeleton className="h-28 w-full rounded-lg" />
                 </div>
+              ) : isCompressing ? (
+                <div className="flex w-full max-w-sm flex-col items-center gap-3 text-center">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    {locale === 'zh' ? '正在压缩图片...' : 'Compressing image...'}
+                  </p>
+                </div>
               ) : (
                 <>
                   <Upload className="size-8 text-muted-foreground" />
@@ -267,7 +280,7 @@ export function EditForm() {
             aria-label="Upload images"
             className="hidden"
             onChange={(e) => {
-              if (e.target.files) addFiles(e.target.files)
+              if (e.target.files) void addFiles(e.target.files)
               e.target.value = ''
             }}
           />
@@ -291,7 +304,7 @@ export function EditForm() {
           type="submit"
           size="lg"
           className="w-full gap-2"
-          disabled={isPending || files.length === 0}
+          disabled={isPending || isCompressing || files.length === 0}
         >
           {isPending ? (
             <>

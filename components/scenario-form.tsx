@@ -14,6 +14,7 @@ import { editImageAction } from '@/app/actions/edit'
 import { showQuotaError } from '@/lib/error-toast'
 import { PostActions } from '@/components/post-actions'
 import { RefineDialog } from '@/components/refine-dialog'
+import { compressImage } from '@/lib/image-compress'
 import type { ActionResult, ImageResult } from '@/lib/types'
 
 interface ScenarioFormProps {
@@ -41,6 +42,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
   const [quality, setQuality] = useState(scenario.defaultQuality)
   const [files, setFiles] = useState<UploadedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [isCompressing, setIsCompressing] = useState(false)
   const [submitResult, setSubmitResult] = useState<ActionResult<ImageResult> | null>(null)
 
   // Get scenario-specific i18n. Each scenario key has at least { name, subtitle }.
@@ -55,19 +57,26 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const addFiles = useCallback((newFiles: FileList | File[]) => {
-    setFiles((prev) => {
-      const incoming = Array.from(newFiles)
-        .filter((f) => f.type.startsWith('image/'))
-        .slice(0, 1 - prev.length)
-      if (incoming.length === 0) return prev
-      const uploaded: UploadedFile[] = incoming.map((file) => ({
+  const addFiles = useCallback(async (newFiles: FileList | File[]) => {
+    const currentCount = files.length
+    const incoming = Array.from(newFiles)
+      .filter((f) => f.type.startsWith('image/'))
+      .slice(0, 1 - currentCount)
+
+    if (incoming.length === 0) return
+
+    setIsCompressing(true)
+    try {
+      const compressed = await Promise.all(incoming.map((f) => compressImage(f)))
+      const uploaded: UploadedFile[] = compressed.map((file) => ({
         file,
         preview: URL.createObjectURL(file),
       }))
-      return [...prev, ...uploaded].slice(0, 1)
-    })
-  }, [])
+      setFiles((prev) => [...prev, ...uploaded].slice(0, 1))
+    } finally {
+      setIsCompressing(false)
+    }
+  }, [files.length])
 
   function removeFile() {
     setFiles((prev) => {
@@ -80,7 +89,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
     e.preventDefault()
     setIsDragging(false)
     if (e.dataTransfer.files) {
-      addFiles(e.dataTransfer.files)
+      void addFiles(e.dataTransfer.files)
     }
   }
 
@@ -182,11 +191,20 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
             )}
           >
             {files.length === 0 ? (
-              <>
-                <Upload className="size-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">{t.uploadLabel}</p>
-                <p className="text-xs text-muted-foreground/70">PNG, JPG, WebP up to 10MB</p>
-              </>
+              isCompressing ? (
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    {locale === 'zh' ? '正在压缩图片...' : 'Compressing image...'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="size-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">{t.uploadLabel}</p>
+                  <p className="text-xs text-muted-foreground/70">PNG, JPG, WebP up to 10MB</p>
+                </>
+              )
             ) : (
               <div className="group relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -212,7 +230,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
             accept="image/*"
             aria-label="Upload image"
             className="hidden"
-            onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }}
+            onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = '' }}
           />
         </div>
       )}
@@ -309,7 +327,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
       <Button
         size="lg"
         className="w-full gap-2"
-        disabled={isPending || !canSubmit}
+        disabled={isPending || isCompressing || !canSubmit}
         onClick={handleSubmit}
       >
         {isPending ? (
