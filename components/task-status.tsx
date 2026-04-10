@@ -4,6 +4,7 @@ import { Loader2, RefreshCw, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PostActions } from '@/components/post-actions'
 import { useLocale } from '@/components/locale-provider'
+import { getTaskStatusMessage } from '@/lib/task-status-copy'
 
 interface TaskStatusProps {
   status: 'pending' | 'processing' | 'completed' | 'failed'
@@ -38,7 +39,7 @@ export function TaskStatus({
       <div className="flex flex-col items-center gap-3 rounded-xl border bg-muted/50 p-8 text-center">
         <Loader2 className="size-8 animate-spin text-primary" />
         <p className="text-sm font-medium">
-          {locale === 'zh' ? `生成中... ${elapsed}s` : `Generating... ${elapsed}s`}
+          {getTaskStatusMessage(status, elapsed, locale)}
         </p>
       </div>
     )

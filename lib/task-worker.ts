@@ -2,6 +2,7 @@ import { generateImage, editImage } from '@/lib/image-api'
 import { uploadImage } from '@/lib/storage'
 import { insertImage, claimNextTask, saveTaskResult, markTaskCompleted, markTaskRetryable, markTaskFailed, deleteUsageLog } from '@/lib/db/queries'
 import { del } from '@vercel/blob'
+import { shouldCleanupTempSources, type TaskTempSourceOutcome } from '@/lib/task-worker-state'
 import type { GenerateTaskPayload, EditTaskPayload } from '@/lib/types'
 
 async function cleanupTempSources(sourceUrls: string[]): Promise<void> {
@@ -25,13 +26,20 @@ async function executeTask(task: {
   usageLogId: string | null
 }): Promise<void> {
   let tempSourceUrls: string[] = []
+  let tempSourceOutcome: TaskTempSourceOutcome | null = null
 
   try {
+    if (task.type === 'edit') {
+      const payload = JSON.parse(task.payload) as EditTaskPayload
+      tempSourceUrls = payload.sourceImageUrls
+    }
+
     // Idempotency: if task already has a result (prior attempt succeeded at insertImage
     // but failed at markTaskCompleted), skip re-execution and just mark completed
     if (task.result) {
       const existing = JSON.parse(task.result) as { imageId: string; blobUrl: string }
       await markTaskCompleted(task.id, existing)
+      tempSourceOutcome = 'completed'
       return
     }
 
@@ -57,7 +65,6 @@ async function executeTask(task: {
       await markTaskCompleted(task.id, taskResult)
     } else {
       const payload = JSON.parse(task.payload) as EditTaskPayload
-      tempSourceUrls = payload.sourceImageUrls
 
       const imageBuffers: Buffer[] = []
       for (const sourceUrl of payload.sourceImageUrls) {
@@ -89,6 +96,7 @@ async function executeTask(task: {
       const taskResult = { imageId: record.id, blobUrl: url }
       await saveTaskResult(task.id, taskResult)
       await markTaskCompleted(task.id, taskResult)
+      tempSourceOutcome = 'completed'
     }
   } catch (error: unknown) {
     const rawMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -111,14 +119,16 @@ async function executeTask(task: {
 
     if (nextAttempts < task.maxAttempts) {
       await markTaskRetryable(task.id, errorMessage, task.attempts)
+      tempSourceOutcome = 'retryable'
     } else {
       await markTaskFailed(task.id, errorMessage, task.attempts)
       if (task.usageLogId) {
         await deleteUsageLog(task.usageLogId)
       }
+      tempSourceOutcome = 'failed'
     }
   } finally {
-    if (tempSourceUrls.length > 0) {
+    if (shouldCleanupTempSources(task.type, tempSourceOutcome) && tempSourceUrls.length > 0) {
       await cleanupTempSources(tempSourceUrls)
     }
   }
