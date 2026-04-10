@@ -75,7 +75,9 @@ E5 body parsed     (+Δms from E4, payload bytes)
 E6 buffer extracted (+Δms from E5, result buffer bytes, total +Δms from E0)
 ```
 
-`generateImage()` gets the same treatment for symmetry (shorter chain, no base64 encode phase). This is low priority — included for coherent logs if the user happens to test generate during diagnosis, but the spec's success criteria depend only on `editImage` data.
+`generateImage()` is **explicitly out of scope for instrumentation** in this diagnosis. Only `editImage()` gets the E0–E6 treatment. Reason: the reproducing failure is edit-only, and adding timing to generate expands both the production-code blast radius and the teardown surface for no diagnostic benefit. Generate stays untouched.
+
+The E0 log line MUST record the exact total input bytes fed to `editImage` (sum of all buffer lengths). This establishes a baseline for any future discussion of whether input size affects latency — without it, Phase 4 (image size variants, currently deferred) has no ground truth.
 
 Logs use `console.error('[bench-phase1] <traceId> <label> ...')`. No return-value change, no error-handling change. Every added line and every new parameter is prefixed/commented with `// TEMP-DIAGNOSIS:` so the teardown grep finds them.
 
@@ -117,8 +119,13 @@ Content-Type: application/json
 ### Phase 2B — flow
 
 1. Validate `DEBUG_SECRET`. If env var missing → 503. If header mismatch → 401.
-2. Read `DEBUG_BENCH_IMAGE_URL` from env — this is a pre-populated Vercel Blob URL pointing to the test fixture image.
-3. Fetch the fixture bytes (one HTTPS GET to the Blob URL).
+2. Read `DEBUG_BENCH_IMAGE_URL` from env and **validate it** before fetching:
+   - Must parse as a URL.
+   - Protocol must be `https:`.
+   - Hostname must end with `.public.blob.vercel-storage.com` (the Vercel Blob public domain).
+   - If any check fails → return 500 with `{"error":"DEBUG_BENCH_IMAGE_URL invalid"}` and do NOT make the fetch.
+   - Rationale: the route runs in production and is authenticated only by `DEBUG_SECRET`. Blocking arbitrary hostnames prevents an env-misconfiguration or token-leak scenario from turning the route into an SSRF vector.
+3. Fetch the fixture bytes (one HTTPS GET to the validated Blob URL).
 4. Loop `samples` times:
    - Generate a fresh traceId.
    - Call `editImage(prompt, [buffer], { traceId, timingOut })`.
@@ -142,6 +149,8 @@ Content-Type: application/json
   ]
 }
 ```
+
+`fixtureBytes` is load-bearing: the Decision Matrix row "Phase 2B fast but fixture bytes differ from real action" depends on being able to compare this number against the `T2 magic-byte done (... N bytes)` line emitted by the real `editImageAction`. Do not remove it from the response, even if `samples` is empty.
 
 ### Phase 2B — implementation note (side-channel)
 
@@ -184,10 +193,11 @@ Reads `.env.local` manually to get `IMAGE_API_KEY`, `IMAGE_API_URL`, `IMAGE_MODE
 2. Base64 encode once outside the loop (so encoding cost is not repeated).
 3. Build the request body matching the exact shape `editImage()` uses.
 4. Loop `samples` times, timing each phase of each call with `performance.now()`:
-   - `connectMs` — time until socket open (from fetch start until first response event)
-   - `headersMs` — time until response headers received
-   - `bodyMs` — time until body fully read
+   - `headersMs` — time from `fetch()` invocation until the Response promise resolves (headers received)
+   - `bodyMs` — time from headers received until `response.json()` (or `.arrayBuffer()`) resolves
    - `totalMs` — wall-clock for the entire call
+
+**Note on omitted metrics:** We intentionally do NOT measure socket-open / DNS / TLS separately. Node's built-in `fetch` (undici) does not expose those phases without a custom `Dispatcher` or `diagnostics_channel` hook, and pulling that in expands scope and dependencies. If Phase 2C shows a suspicious gap *before* `headersMs` grows (i.e., the issue is pre-connection), we'll add targeted `curl -w` measurements as a follow-up rather than bloating this script.
 5. Print a summary table:
 
 ```text
@@ -199,7 +209,7 @@ endpoint: 147ai.com
               min    p50    p95    max
 headersMs   23100  28500  37800  41100
 bodyMs        400    600   1200   1500
-totalMs     24300  29100  38200  41700
+totalMs     23500  29100  39000  42600
 ```
 
 ### Execution environment
@@ -300,7 +310,18 @@ Per explicit user instruction:
      - The temporary `scripts/bench-147ai.mjs` (or moves it to `scripts/archive/` if user wants to keep it as a regression tool)
      - All `// TEMP-DIAGNOSIS:` blocks in `lib/image-api.ts` and any `tlog` calls in actions that were added for diagnosis
    - Teardown commit references the diagnosis entry commit hash so future readers can find the context.
-   - `grep -R "TEMP-DIAGNOSIS\|bench-phase" .` must return zero results after teardown.
+   - **Teardown verification must scope out the spec itself, node_modules, and build output** (this spec file contains the marker strings in example snippets and will always match). Run these checks in `app/`, `lib/`, and `scripts/` only:
+
+     ```bash
+     # All of these must print nothing.
+     rg -n "TEMP-DIAGNOSIS" app lib scripts
+     rg -n "bench-phase" app lib scripts
+     rg -n "\[generate-timing\]|\[edit-timing\]" app lib
+     # And the debug route directory must not exist.
+     test ! -d app/api/debug && echo "ok: app/api/debug removed"
+     ```
+
+     `rg` is preferred over `grep -R` because it honors `.gitignore` by default (so `.next/` and `node_modules/` are auto-excluded) and behaves consistently on the user's Windows / Git Bash environment.
    - User deletes `DEBUG_SECRET` and `DEBUG_BENCH_IMAGE_URL` from Vercel env vars.
    - User deletes the test fixture from Vercel Blob if desired (optional, it's small).
 
@@ -310,10 +331,15 @@ Per explicit user instruction:
 |---|---|---|---|---|
 | E3→E4 hangs 59 s | Also hangs 59 s | Local stable ~30 s | Vercel sin1 → 147ai network path | Try Edge runtime, different region, or proxy |
 | E3→E4 hangs 59 s | Also hangs 59 s | Local also hangs / high variance | 147ai tail latency | Upgrade Pro, add retry, or switch API |
-| E3→E4 hangs 59 s | Completes in ~30 s | Local fast | Our product chain introduces blocking | Audit auth / quota / blob path |
-| E1→E2 dominates | Any | Any | Base64 encoding abnormally slow | Investigate buffer handling, possible Vercel runtime issue |
-| All E phases complete <30 s, but real action still 60 s | N/A | N/A | Hang is outside `editImage` | Audit action wrapper, server-action serialization |
-| Phase 3 sleep300 completes at 75 s | N/A | N/A | 60 s cap is self-imposed not platform-imposed | Immediately raise `maxDuration = 300` on edit/generate pages |
+| E3→E4 hangs 59 s | Completes in ~30 s (same fixture bytes as real action) | Local fast | Our product chain introduces blocking | Audit auth / quota / blob path between T3 and T4 |
+| E3→E4 hangs 59 s | Completes in ~30 s but fixture bytes differ from real action | Any | Cannot attribute yet — fixture mismatch | Re-run Phase 2B with the EXACT bytes the failing real action used; do not conclude until fixtures match |
+| E1→E2 dominates (>5 s on 1 MB input) | Any | Any | Base64 encoding abnormally slow | Investigate buffer handling, possible Vercel runtime/CPU issue |
+| E4→E5 dominates (body streaming hangs) | Same pattern | Same pattern | 147ai slow body streaming OR large result payload | Inspect payload size, check if streaming parse helps, consider smaller output format |
+| E4→E5 dominates | Same pattern | Local E4→E5 fast | Vercel → 147ai return path slow on body bytes | Same remedies as network-path row (region/proxy/Edge) |
+| E5→E6 dominates (JSON/buffer parse hang) | Same pattern | Same pattern | JSON decode of huge base64 payload pegs event loop | Switch to streaming or binary response format, or chunk the decode |
+| All E phases complete <30 s, but real action still 60 s | N/A | N/A | Hang is outside `editImage` (wrapper/serialization/magic-byte) | Audit action wrapper, server-action form parsing, magic-byte step |
+| Phase 3 `sleep300?seconds=75` completes in ~75 s | N/A | N/A | 60 s cap is self-imposed via `maxDuration = 60` on edit/generate, not platform-imposed | Raise `maxDuration` to 120–300 on those pages as an immediate mitigation |
+| Phase 3 `sleep300?seconds=75` also killed at ~60 s | N/A | N/A | Hobby plan enforces a 60 s ceiling regardless of `maxDuration` declaration | `maxDuration` is a dead lever. Remedies: enable Fluid Compute if applicable, upgrade plan, or redesign chain to stay under 60 s (compression, async worker on a different platform, etc.) |
 
 ## Rollout Plan
 
