@@ -48,9 +48,7 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
       } catch {
         setSubmitResult({
           success: false,
-          error: locale === 'zh'
-            ? '请求超时或网络错误，请稍后重试'
-            : 'Request timed out or network error. Please try again.',
+          error: t.requestTimeout,
         })
       }
     })
@@ -92,13 +90,13 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
 
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="prompt">Prompt</Label>
+          <Label htmlFor="prompt">{t.freeformPromptLabel}</Label>
           <Textarea
             id="prompt"
             name="prompt"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the image you want to create..."
+            placeholder={t.freeformPromptPlaceholder}
             className="min-h-32 resize-none"
             required
             disabled={isPending}
@@ -162,6 +160,20 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
         </Button>
       </form>
 
+      {isPending && (
+        <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-full bg-background p-2 text-primary shadow-sm">
+              <Loader2 className="size-4 animate-spin" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t.waitingTitle}</p>
+              <p className="text-sm leading-6 text-muted-foreground">{t.waitingDescription}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {errorMessage && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {errorMessage}
@@ -172,7 +184,7 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={result.blobUrl} alt="Generated" className="w-full object-contain" />
+            <img src={result.blobUrl} alt={t.resultAlt} className="w-full object-contain" />
           </div>
           <PostActions
             imageUrl={result.blobUrl}

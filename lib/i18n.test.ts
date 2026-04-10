@@ -18,3 +18,17 @@ test('provides landing page and legal copy in both languages', () => {
     assert.ok(copy[locale].legal.privacyTitle)
   }
 })
+
+test('provides polished creation and gallery copy in both languages', () => {
+  for (const locale of locales) {
+    assert.ok(copy[locale].scenario.freeformPromptLabel)
+    assert.ok(copy[locale].scenario.freeformPromptPlaceholder)
+    assert.ok(copy[locale].scenario.uploadHint)
+    assert.ok(copy[locale].scenario.resultAlt)
+    assert.ok(copy[locale].scenario.waitingTitle)
+    assert.ok(copy[locale].scenario.waitingDescription)
+    assert.ok(copy[locale].scenario.requestTimeout)
+    assert.ok(copy[locale].gallery.pageTitle)
+    assert.ok(copy[locale].gallery.emptyDescription)
+  }
+})

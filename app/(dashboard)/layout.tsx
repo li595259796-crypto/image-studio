@@ -43,7 +43,7 @@ export default async function DashboardLayout({
   const dbLocale: Locale = rawLocale === 'en' || rawLocale === 'zh' ? rawLocale : 'zh'
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top_left,rgba(161,98,7,0.08),transparent_30%),linear-gradient(180deg,rgba(248,242,234,0.85),rgba(255,255,255,0.96)_42%)]">
       <LocaleSync locale={dbLocale} />
       <NavBar user={userInfo} quota={quota} />
       <main className="flex-1">

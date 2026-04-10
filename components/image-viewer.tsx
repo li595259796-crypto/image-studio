@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,8 +28,8 @@ interface ImageViewerProps {
   onFavoriteChanged?: (imageId: string, isFavorite: boolean) => void
 }
 
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
+function formatDate(dateString: string, locale: 'zh' | 'en'): string {
+  return new Date(dateString).toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
@@ -138,25 +137,27 @@ export function ImageViewer({
         if (!val) setConfirmDelete(false)
       }}
     >
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Image Details</DialogTitle>
+          <DialogTitle className="sr-only">{gt.detailsTitle}</DialogTitle>
           <DialogDescription className="sr-only">
-            View and manage image
+            {gt.detailsDescription}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="relative min-h-64 overflow-hidden rounded-lg border">
+          {/* Image */}
+          <div className="relative min-h-72 overflow-hidden rounded-xl border bg-muted/30 sm:min-h-[420px]">
             <Image
               src={currentImage.blobUrl ?? ''}
               alt={currentImage.prompt}
               fill
               className="object-contain"
-              sizes="(max-width: 768px) 100vw, 672px"
+              sizes="(max-width: 768px) 100vw, 768px"
             />
           </div>
 
+          {/* Prompt & metadata */}
           <div className="space-y-2">
             <p className="text-sm leading-relaxed text-foreground">
               {currentImage.prompt}
@@ -167,78 +168,82 @@ export function ImageViewer({
               {currentImage.aspectRatio && (
                 <Badge variant="outline">{currentImage.aspectRatio}</Badge>
               )}
-              <span>{formatDate(currentImage.createdAt.toString())}</span>
+              <span className="ml-auto">{formatDate(currentImage.createdAt.toString(), locale)}</span>
             </div>
           </div>
-        </div>
 
-        <DialogFooter className="flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() =>
-              handleDownload(
-                currentImage.blobUrl ?? '',
-                `image-${currentImage.id}.png`
-              )
-            }
-          >
-            <Download className="size-3.5" />
-            {pt.download}
-          </Button>
-
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopyPrompt}>
-            <Clipboard className="size-3.5" />
-            {gt.copyPrompt}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handleFavoriteToggle}
-            disabled={isFavoritePending}
-          >
-            <Heart
-              className="size-3.5"
-              fill={currentImage.isFavorite ? 'currentColor' : 'none'}
-            />
-            {locale === 'zh'
-              ? currentImage.isFavorite ? '取消收藏' : '收藏'
-              : currentImage.isFavorite ? 'Unfavorite' : 'Favorite'}
-          </Button>
-
-          {/* Only show "Copy to Generate" for pure generate results */}
-          {!isUploadType && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopyToGenerate}>
-              <Copy className="size-3.5" />
-              {gt.copyToGenerate}
+          {/* Primary actions */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => handleDownload(currentImage.blobUrl ?? '', `image-${currentImage.id}.png`)}
+            >
+              <Download className="size-3.5" />
+              {pt.download}
             </Button>
-          )}
 
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleContinueEdit}>
-            <Pencil className="size-3.5" />
-            {gt.continueEdit}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleContinueEdit}
+            >
+              <Pencil className="size-3.5" />
+              {gt.continueEdit}
+            </Button>
 
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="gap-1.5"
-          >
-            {isDeleting ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="size-3.5" />
+            {!isUploadType && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopyToGenerate}>
+                <Copy className="size-3.5" />
+                {gt.copyToGenerate}
+              </Button>
             )}
-            {confirmDelete ? 'Confirm Delete' : 'Delete'}
-          </Button>
-        </DialogFooter>
+          </div>
+
+          {/* Secondary actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={handleCopyPrompt}>
+              <Clipboard className="size-3.5" />
+              {gt.copyPrompt}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleFavoriteToggle}
+              disabled={isFavoritePending}
+            >
+              <Heart
+                className="size-3.5"
+                fill={currentImage.isFavorite ? 'currentColor' : 'none'}
+              />
+              {locale === 'zh'
+                ? currentImage.isFavorite ? '取消收藏' : '收藏'
+                : currentImage.isFavorite ? 'Unfavorite' : 'Favorite'}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="ml-auto gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              {isDeleting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="size-3.5" />
+              )}
+              {confirmDelete
+                ? locale === 'zh' ? '确认删除' : 'Confirm Delete'
+                : locale === 'zh' ? '删除' : 'Delete'}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
 }
-

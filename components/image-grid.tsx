@@ -47,6 +47,8 @@ export function ImageGrid({
     )
   }
 
+  const SKELETON_COUNT = 8
+
   if (!loading && images.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
@@ -61,7 +63,7 @@ export function ImageGrid({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-[520px] space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {images.map((image) => (
           <ImageCard
@@ -72,7 +74,7 @@ export function ImageGrid({
           />
         ))}
         {loading &&
-          Array.from({ length: 4 }).map((_, i) => (
+          Array.from({ length: images.length === 0 ? SKELETON_COUNT : 4 }).map((_, i) => (
             <div key={`skeleton-${i}`} className="space-y-2">
               <Skeleton className="aspect-square w-full rounded-xl" />
               <Skeleton className="h-4 w-3/4" />

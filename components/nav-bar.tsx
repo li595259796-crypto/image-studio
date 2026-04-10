@@ -51,15 +51,15 @@ export function NavBar({ user, quota }: NavBarProps) {
   ] as const
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-background/85 shadow-[0_10px_30px_rgba(34,24,10,0.04)] backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
         <div className="flex items-center gap-6">
           <Link
             href="/generate"
-            className="flex items-center gap-2 text-lg font-semibold tracking-tight"
+            className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight"
           >
             <Wand2 className="size-5 text-primary" />
-            <span>{BRAND_NAME}</span>
+            <span className="whitespace-nowrap">{BRAND_NAME}</span>
           </Link>
 
           <nav className="flex items-center gap-1 overflow-x-auto">
@@ -75,6 +75,7 @@ export function NavBar({ user, quota }: NavBarProps) {
                     isActive && 'font-semibold'
                   )}
                   render={<Link href={href} />}
+                  nativeButton={false}
                 >
                   <Icon className="size-4" />
                   <span className="hidden sm:inline">{label}</span>

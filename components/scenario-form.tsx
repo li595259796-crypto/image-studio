@@ -100,10 +100,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
 
     const timeoutError = {
       success: false as const,
-      error:
-        locale === 'zh'
-          ? '请求超时或网络错误，请稍后重试'
-          : 'Request timed out or network error. Please try again.',
+      error: t.requestTimeout,
     }
 
     setSubmitResult(null)
@@ -202,7 +199,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
                 <>
                   <Upload className="size-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">{t.uploadLabel}</p>
-                  <p className="text-xs text-muted-foreground/70">PNG, JPG, WebP up to 10MB</p>
+                  <p className="text-xs text-muted-foreground/70">{t.uploadHint}</p>
                 </>
               )
             ) : (
@@ -210,12 +207,12 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={files[0].preview}
-                  alt="Upload"
+                  alt={t.uploadAlt}
                   className="size-28 rounded-lg object-cover ring-1 ring-border"
                 />
                 <button
                   type="button"
-                  aria-label="Remove image"
+                  aria-label={t.removeImageAlt}
                   onClick={(e) => { e.stopPropagation(); removeFile() }}
                   className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
                 >
@@ -228,7 +225,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            aria-label="Upload image"
+            aria-label={t.uploadLabel}
             className="hidden"
             onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = '' }}
           />
@@ -340,12 +337,26 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
         )}
       </Button>
 
+      {isPending && (
+        <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-full bg-background p-2 text-primary shadow-sm">
+              <Loader2 className="size-4 animate-spin" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t.waitingTitle}</p>
+              <p className="text-sm leading-6 text-muted-foreground">{t.waitingDescription}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Result */}
       {result && (
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={result.blobUrl} alt="Generated" className="w-full object-contain" />
+            <img src={result.blobUrl} alt={t.resultAlt} className="w-full object-contain" />
           </div>
           <PostActions
             imageUrl={result.blobUrl}

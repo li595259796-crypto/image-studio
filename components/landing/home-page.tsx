@@ -7,15 +7,15 @@ import { useLocale } from '@/components/locale-provider'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const sampleImages = [
-  'https://picsum.photos/id/1011/900/720',
-  'https://picsum.photos/id/1015/900/720',
-  'https://picsum.photos/id/1025/900/720',
-  'https://picsum.photos/id/1035/900/720',
-  'https://picsum.photos/id/1041/900/720',
-  'https://picsum.photos/id/1067/900/720',
-  'https://picsum.photos/id/1074/900/720',
-  'https://picsum.photos/id/1084/900/720',
+const sampleGradients = [
+  'from-rose-900 via-rose-800 to-slate-900',
+  'from-zinc-900 via-slate-800 to-stone-900',
+  'from-blue-950 via-indigo-900 to-cyan-900',
+  'from-stone-800 via-amber-950 to-neutral-900',
+  'from-amber-700 via-orange-700 to-yellow-800',
+  'from-purple-900 via-violet-800 to-fuchsia-900',
+  'from-sky-900 via-blue-800 to-indigo-900',
+  'from-emerald-900 via-teal-800 to-cyan-900',
 ] as const
 
 export function LandingPage() {
@@ -69,22 +69,18 @@ export function LandingPage() {
               <span>08</span>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {sampleImages.map((src, index) => (
+              {dictionary.landing.samples.map((label, index) => (
                 <article
-                  key={src}
-                  className="group relative overflow-hidden rounded-3xl border border-black/6 bg-black shadow-[0_24px_60px_rgba(34,24,10,0.14)]"
+                  key={index}
+                  className={cn(
+                    'group relative overflow-hidden rounded-3xl border border-black/6 bg-gradient-to-br shadow-[0_24px_60px_rgba(34,24,10,0.14)]',
+                    sampleGradients[index]
+                  )}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={src}
-                    alt={`${dictionary.landing.sampleAltPrefix} ${index + 1}`}
-                    className="h-28 w-full object-cover opacity-95 saturate-[0.9] transition-transform duration-500 group-hover:scale-105 sm:h-36 lg:h-40"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+                  <div className="h-28 w-full sm:h-36 lg:h-40" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 p-3">
-                    <p className="text-sm font-medium text-white">
-                      {dictionary.landing.samples[index]}
-                    </p>
+                    <p className="text-sm font-medium text-white/90">{label}</p>
                   </div>
                 </article>
               ))}

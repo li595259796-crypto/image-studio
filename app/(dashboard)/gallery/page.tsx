@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useTransition } from 'react'
 import { GalleryFilters, type TimeRange } from '@/components/gallery-filters'
 import { ImageGrid } from '@/components/image-grid'
 import { getImages } from '@/app/actions/gallery'
+import { useLocale } from '@/components/locale-provider'
 import type { ImageRecord } from '@/lib/types'
 
 const PAGE_SIZE = 20
@@ -12,8 +13,11 @@ export default function GalleryPage() {
   const [images, setImages] = useState<ImageRecord[]>([])
   const [total, setTotal] = useState(0)
   const [isPending, startTransition] = useTransition()
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
   const [timeRange, setTimeRange] = useState<TimeRange>('all')
   const [favoriteOnly, setFavoriteOnly] = useState(false)
+  const { locale, dictionary } = useLocale()
+  const t = dictionary.gallery
 
   const loadImages = useCallback(
     (
@@ -31,6 +35,7 @@ export default function GalleryPage() {
           )
           setTotal(res.data.total)
         }
+        setIsFirstLoad(false)
       })
     },
     []
@@ -79,11 +84,13 @@ export default function GalleryPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Gallery</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t.pageTitle}</h1>
           <p className="text-sm text-muted-foreground">
             {total > 0
-              ? `${total} image${total === 1 ? '' : 's'} in your collection`
-              : 'Your generated and edited images will appear here.'}
+              ? locale === 'en' && total === 1
+                ? '1 image saved'
+                : `${total} ${t.collectionDescription}`
+              : t.emptyDescription}
           </p>
         </div>
 
@@ -98,7 +105,7 @@ export default function GalleryPage() {
         images={images}
         onLoadMore={handleLoadMore}
         hasMore={hasMore}
-        loading={isPending}
+        loading={isFirstLoad || isPending}
         onImageDeleted={handleImageDeleted}
         onFavoriteChanged={handleFavoriteChanged}
       />

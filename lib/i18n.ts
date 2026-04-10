@@ -63,6 +63,15 @@ interface LocaleCopy {
     generateButton: string
     generatingButton: string
     refineButton: string
+    freeformPromptLabel: string
+    freeformPromptPlaceholder: string
+    uploadHint: string
+    uploadAlt: string
+    removeImageAlt: string
+    resultAlt: string
+    waitingTitle: string
+    waitingDescription: string
+    requestTimeout: string
   }
   postAction: {
     download: string
@@ -108,9 +117,14 @@ interface LocaleCopy {
     unexpectedError: string
   }
   gallery: {
+    pageTitle: string
+    emptyDescription: string
+    collectionDescription: string
     copyToGenerate: string
     copyPrompt: string
     continueEdit: string
+    detailsTitle: string
+    detailsDescription: string
   }
   settings: {
     pageTitle: string
@@ -262,6 +276,15 @@ export const copy: Record<Locale, LocaleCopy> = {
       generateButton: '🎨 生成',
       generatingButton: '生成中...',
       refineButton: '💡 帮我完善需求',
+      freeformPromptLabel: '提示词',
+      freeformPromptPlaceholder: '描述你想生成的画面，例如：暖色调电商主图、干净背景、柔和自然光',
+      uploadHint: '支持 PNG、JPG、WebP，最大 10MB',
+      uploadAlt: '上传图片',
+      removeImageAlt: '移除图片',
+      resultAlt: '生成结果',
+      waitingTitle: '正在生成图片',
+      waitingDescription: '通常需要 30-60 秒。请保持页面打开，我们会在完成后展示结果。',
+      requestTimeout: '请求超时或网络错误，请稍后重试。',
     },
     postAction: {
       download: '下载',
@@ -307,9 +330,14 @@ export const copy: Record<Locale, LocaleCopy> = {
       unexpectedError: '发生意外错误，请重试',
     },
     gallery: {
+      pageTitle: '画廊',
+      emptyDescription: '你的生成和编辑图片会显示在这里。',
+      collectionDescription: '张图片已保存',
       copyToGenerate: '复制到生成页',
       copyPrompt: '复制 Prompt',
       continueEdit: '继续编辑',
+      detailsTitle: '图片详情',
+      detailsDescription: '查看和管理图片',
     },
     settings: {
       pageTitle: '账户设置',
@@ -459,6 +487,15 @@ export const copy: Record<Locale, LocaleCopy> = {
       generateButton: '🎨 Generate',
       generatingButton: 'Generating...',
       refineButton: '💡 Help me refine',
+      freeformPromptLabel: 'Prompt',
+      freeformPromptPlaceholder: 'Describe the image you want, for example: warm product hero shot, clean background, soft natural light',
+      uploadHint: 'PNG, JPG, WebP up to 10MB',
+      uploadAlt: 'Uploaded image',
+      removeImageAlt: 'Remove image',
+      resultAlt: 'Generated result',
+      waitingTitle: 'Creating your image',
+      waitingDescription: 'This usually takes 30-60 seconds. Keep this page open and the result will appear here.',
+      requestTimeout: 'Request timed out or network error. Please try again.',
     },
     postAction: {
       download: 'Download',
@@ -504,9 +541,14 @@ export const copy: Record<Locale, LocaleCopy> = {
       unexpectedError: 'An unexpected error occurred. Please try again.',
     },
     gallery: {
+      pageTitle: 'Gallery',
+      emptyDescription: 'Your generated and edited images will appear here.',
+      collectionDescription: 'images saved',
       copyToGenerate: 'Copy to Generate',
       copyPrompt: 'Copy Prompt',
       continueEdit: 'Continue Edit',
+      detailsTitle: 'Image Details',
+      detailsDescription: 'View and manage image',
     },
     settings: {
       pageTitle: 'Account Settings',

@@ -15,6 +15,7 @@ import { showQuotaError } from '@/lib/error-toast'
 import { PostActions } from '@/components/post-actions'
 import { getPreloadableSourceUrl } from '@/lib/edit-source'
 import { compressImage } from '@/lib/image-compress'
+import { copy } from '@/lib/i18n'
 import type { ActionResult, ImageResult } from '@/lib/types'
 
 interface UploadedFile {
@@ -25,6 +26,7 @@ interface UploadedFile {
 export function EditForm() {
   const searchParams = useSearchParams()
   const { locale } = useLocale()
+  const t = copy[locale].scenario
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
@@ -114,7 +116,11 @@ export function EditForm() {
 
         await addFiles([file], { onlyIfEmpty: true })
       } catch {
-        toast.error('无法加载源图片，请手动上传')
+        toast.error(
+          locale === 'zh'
+            ? '无法加载源图片，请手动上传'
+            : 'Could not load source image. Please upload it manually.'
+        )
       } finally {
         if (!cancelled) {
           setIsPreloadingSource(false)
@@ -159,9 +165,7 @@ export function EditForm() {
       } catch {
         setSubmitResult({
           success: false,
-          error: locale === 'zh'
-            ? '请求超时或网络错误，请稍后重试'
-            : 'Request timed out or network error. Please try again.',
+          error: t.requestTimeout,
         })
       }
     })
@@ -199,7 +203,7 @@ export function EditForm() {
     <div className="space-y-6">
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
-          <Label>Images (1-2)</Label>
+          <Label>{locale === 'zh' ? '图片 (1-2)' : 'Images (1-2)'}</Label>
           <div
             onDragOver={(e) => {
               e.preventDefault()
@@ -220,7 +224,9 @@ export function EditForm() {
               isPreloadingSource ? (
                 <div className="flex w-full max-w-sm flex-col items-center gap-3 text-center">
                   <Loader2 className="size-6 animate-spin text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Loading source image...</p>
+                  <p className="text-sm text-muted-foreground">
+                    {locale === 'zh' ? '正在加载源图片...' : 'Loading source image...'}
+                  </p>
                   <Skeleton className="h-28 w-full rounded-lg" />
                 </div>
               ) : isCompressing ? (
@@ -234,10 +240,12 @@ export function EditForm() {
                 <>
                   <Upload className="size-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
-                    Drop images here or click to upload
+                    {locale === 'zh'
+                      ? '拖拽图片到这里，或点击上传'
+                      : 'Drop images here or click to upload'}
                   </p>
                   <p className="text-xs text-muted-foreground/70">
-                    PNG, JPG, WebP up to 10MB
+                    {t.uploadHint}
                   </p>
                 </>
               )
@@ -248,12 +256,12 @@ export function EditForm() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={f.preview}
-                      alt={`Upload ${i + 1}`}
+                      alt={`${t.uploadAlt} ${i + 1}`}
                       className="size-28 rounded-lg object-cover ring-1 ring-border"
                     />
                     <button
                       type="button"
-                      aria-label={`Remove image ${i + 1}`}
+                      aria-label={`${t.removeImageAlt} ${i + 1}`}
                       onClick={(e) => {
                         e.stopPropagation()
                         removeFile(i)
@@ -277,7 +285,7 @@ export function EditForm() {
             type="file"
             accept="image/*"
             multiple
-            aria-label="Upload images"
+            aria-label={t.uploadLabel}
             className="hidden"
             onChange={(e) => {
               if (e.target.files) void addFiles(e.target.files)
@@ -287,13 +295,15 @@ export function EditForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="edit-prompt">Editing Prompt</Label>
+          <Label htmlFor="edit-prompt">
+            {locale === 'zh' ? '编辑提示词' : 'Editing Prompt'}
+          </Label>
           <Textarea
             id="edit-prompt"
             name="prompt"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the edits you want to make..."
+            placeholder={locale === 'zh' ? '描述你想要修改的地方...' : 'Describe the edits you want to make...'}
             className="min-h-28 resize-none"
             required
             disabled={isPending}
@@ -309,16 +319,30 @@ export function EditForm() {
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Editing...
+              {locale === 'zh' ? '编辑中...' : 'Editing...'}
             </>
           ) : (
             <>
               <ImagePlus className="size-4" />
-              Edit
+              {locale === 'zh' ? '开始编辑' : 'Edit'}
             </>
           )}
         </Button>
       </form>
+
+      {isPending && (
+        <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-full bg-background p-2 text-primary shadow-sm">
+              <Loader2 className="size-4 animate-spin" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t.waitingTitle}</p>
+              <p className="text-sm leading-6 text-muted-foreground">{t.waitingDescription}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {errorMessage && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -330,14 +354,18 @@ export function EditForm() {
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={result.blobUrl} alt="Edited" className="w-full object-contain" />
+            <img
+              src={result.blobUrl}
+              alt={locale === 'zh' ? '编辑结果' : 'Edited result'}
+              className="w-full object-contain"
+            />
           </div>
           <PostActions
             imageUrl={result.blobUrl}
             imageId={result.imageId}
             prompt={prompt}
             isUploadType={true}
-            editIntent="保留主体，优化背景和光线"
+            editIntent={locale === 'zh' ? '保留主体，优化背景和光线' : 'Keep the subject, improve the background and lighting'}
             onRetry={handleRetry}
             retrying={isPending}
           />
