@@ -10,6 +10,8 @@
 
 **Working branch:** `master` — per user's established workflow on this repo, commits land directly on master. Every commit in this plan must contain a `// TEMP-DIAGNOSIS:` marker comment in any new/modified code line so the teardown grep (`rg -n "TEMP-DIAGNOSIS" app lib scripts`) finds it.
 
+**Commit discipline (MANDATORY):** The workspace currently contains uncommitted frontend / UI changes that are unrelated to this diagnosis. Every `git add` step in this plan MUST name files explicitly (e.g. `git add lib/debug-diagnosis.ts lib/debug-diagnosis.test.ts`). Do NOT use `git add .`, `git add -A`, `git add app/`, or any other wildcard form — that would sweep the unrelated frontend work into a diagnosis commit and pollute both the diagnosis history and the eventual teardown. If a step's `git add` command appears to be missing a file that a previous step created, STOP and ask the controller instead of broadening the glob.
+
 ---
 
 ## File Structure
@@ -311,8 +313,20 @@ Create `lib/image-api.test.ts`:
 import test, { mock } from 'node:test'
 import assert from 'node:assert/strict'
 
+// CRITICAL: image-api.ts reads IMAGE_API_KEY / IMAGE_API_URL / IMAGE_MODEL
+// at MODULE LOAD TIME via top-level `const API_KEY = process.env.IMAGE_API_KEY ?? ''`.
+// If we static-imported editImage at the top of this file, the module would
+// snapshot API_KEY as '' before any test body runs, and the first test call
+// would throw "IMAGE_API_KEY environment variable is not set".
+//
+// Fix: set the env vars FIRST, then use a top-level `await import(...)` so
+// the module is evaluated after env is populated. Node 20 ESM supports TLA.
+process.env.IMAGE_API_KEY = 'test-key'
+process.env.IMAGE_API_URL = 'https://test-endpoint.invalid/v1/chat/completions'
+process.env.IMAGE_MODEL = 'test-model'
+
 // @ts-expect-error Direct .ts import keeps node --test working in this repo.
-import { editImage } from './image-api.ts'
+const { editImage } = await import('./image-api.ts')
 
 // A valid-looking 147ai response body. The base64 payload decodes to "hello"
 // but the test only cares that extractImageBuffer() finds *something*.
@@ -336,7 +350,6 @@ function installFetchMock(): void {
 }
 
 test('editImage populates timingOut with e0..e6 when opts.timingOut provided', async () => {
-  process.env.IMAGE_API_KEY = 'test-key'
   installFetchMock()
 
   const timingOut: Record<string, number> = {}
@@ -351,7 +364,7 @@ test('editImage populates timingOut with e0..e6 when opts.timingOut provided', a
   }
   // e0 is the baseline — always 0.
   assert.equal(timingOut.e0, 0)
-  // Every later phase is >= e0 (monotonic, relative to t0).
+  // Every later phase is >= earlier phase (monotonic, all relative to t0).
   assert.ok(timingOut.e6 >= timingOut.e5)
   assert.ok(timingOut.e5 >= timingOut.e4)
   assert.ok(timingOut.e4 >= timingOut.e3)
@@ -362,7 +375,6 @@ test('editImage populates timingOut with e0..e6 when opts.timingOut provided', a
 })
 
 test('editImage generates a default traceId when opts omitted', async () => {
-  process.env.IMAGE_API_KEY = 'test-key'
   installFetchMock()
 
   // No opts at all — existing callers compile unchanged.
@@ -373,7 +385,6 @@ test('editImage generates a default traceId when opts omitted', async () => {
 })
 
 test('editImage still works when only traceId is passed (no timingOut)', async () => {
-  process.env.IMAGE_API_KEY = 'test-key'
   installFetchMock()
 
   const result = await editImage('test', [Buffer.from('x')], { traceId: 'abcd1234' })
@@ -490,15 +501,23 @@ export async function editImage(
       throw new Error(`Image generation failed (status ${response.status})`)
     }
 
-    const data = (await response.json()) as ApiResponse
+    // Read the body as raw text FIRST so E4->E5 measures pure network body
+    // download time. If we did `await response.json()` here, the JSON parse
+    // cost (which is CPU-bound and can be O(hundreds of ms) on a multi-MB
+    // base64 payload) would be silently folded into E4->E5 and the Decision
+    // Matrix row "E5->E6 dominates = JSON/buffer parse hang" would never
+    // match reality. Keeping body-read and parse in different phases is the
+    // whole reason this diagnosis exists.
+    const responseText = await response.text()
 
-    // TEMP-DIAGNOSIS: E5 body parsed
+    // TEMP-DIAGNOSIS: E5 body read done (pure network body download)
     const t5 = Date.now()
-    const payloadBytes = JSON.stringify(data).length
     console.error(
-      `[bench-phase1] ${traceId} E5 body parsed +${t5 - t4}ms payloadBytes=${payloadBytes}`
+      `[bench-phase1] ${traceId} E5 body read done +${t5 - t4}ms payloadBytes=${responseText.length}`
     )
     if (timingOut) timingOut.e5 = t5 - t0
+
+    const data = JSON.parse(responseText) as ApiResponse
 
     if (!data.choices?.[0]?.message?.content) {
       throw new Error('API response missing expected content structure')
@@ -506,10 +525,10 @@ export async function editImage(
 
     const buffer = extractImageBuffer(data.choices[0].message.content)
 
-    // TEMP-DIAGNOSIS: E6 buffer extracted
+    // TEMP-DIAGNOSIS: E6 json parsed + buffer extracted (pure CPU work)
     const t6 = Date.now()
     console.error(
-      `[bench-phase1] ${traceId} E6 buffer extracted +${t6 - t5}ms resultBytes=${buffer.length} total=${t6 - t0}ms`
+      `[bench-phase1] ${traceId} E6 json parsed + buffer extracted +${t6 - t5}ms resultBytes=${buffer.length} total=${t6 - t0}ms`
     )
     if (timingOut) timingOut.e6 = t6 - t0
 

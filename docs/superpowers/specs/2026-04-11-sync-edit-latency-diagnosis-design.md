@@ -66,14 +66,16 @@ editImage(
 Timing points:
 
 ```text
-E0 invoked         (prompt length, buffer count, total input bytes)
+E0 invoked                       (prompt length, buffer count, total input bytes)
 E1 encode start
-E2 encode done     (+Δms from E0, base64 length)
-E3 fetch start     (URL host, model)
-E4 response headers received  (status, +Δms from E3)
-E5 body parsed     (+Δms from E4, payload bytes)
-E6 buffer extracted (+Δms from E5, result buffer bytes, total +Δms from E0)
+E2 encode done                   (+Δms from E0, base64 length)
+E3 fetch start                   (URL host, model)
+E4 response headers received     (status, +Δms from E3)
+E5 body read done                (+Δms from E4, raw payload bytes — pure network body download, NO parse)
+E6 json parsed + buffer extracted (+Δms from E5, result buffer bytes, total +Δms from E0)
 ```
+
+**Critical:** E4→E5 is the pure network body-download window and E5→E6 is the pure CPU json-parse + base64-extract window. These MUST NOT be merged — the implementation calls `response.text()` at E5 and only then `JSON.parse(...)` + `extractImageBuffer(...)` between E5 and E6. Folding the JSON parse into E4→E5 via `response.json()` would silently hide any CPU-bound parse hang and break the Decision Matrix row that distinguishes body-streaming slowness from JSON/buffer-parse slowness.
 
 `generateImage()` is **explicitly out of scope for instrumentation** in this diagnosis. Only `editImage()` gets the E0–E6 treatment. Reason: the reproducing failure is edit-only, and adding timing to generate expands both the production-code blast radius and the teardown surface for no diagnostic benefit. Generate stays untouched.
 
