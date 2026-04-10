@@ -5,9 +5,8 @@ export async function GET() {
   const appUrl = process.env.APP_URL ?? '(not set)'
   const workerSecret = process.env.WORKER_SECRET ? 'set' : '(not set)'
 
-  const base = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : (process.env.APP_URL ?? 'http://localhost:3000')
+  const base = process.env.APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
   // Try to call the worker endpoint
   let triggerResult = ''
