@@ -113,8 +113,10 @@ POST /api/debug/edit-bench
 Authorization: Bearer ${DEBUG_SECRET}
 Content-Type: application/json
 
-{ "prompt": "string", "samples": 1 }
+{ "prompt": "string" }
 ```
+
+**No `samples` parameter.** The route performs exactly **one** `editImage` call per invocation. To collect N data points, the operator fires N independent HTTP requests (see Rollout Plan).
 
 ### Phase 2B — flow
 
@@ -125,32 +127,31 @@ Content-Type: application/json
    - Hostname must end with `.public.blob.vercel-storage.com` (the Vercel Blob public domain).
    - If any check fails → return 500 with `{"error":"DEBUG_BENCH_IMAGE_URL invalid"}` and do NOT make the fetch.
    - Rationale: the route runs in production and is authenticated only by `DEBUG_SECRET`. Blocking arbitrary hostnames prevents an env-misconfiguration or token-leak scenario from turning the route into an SSRF vector.
-3. Fetch the fixture bytes (one HTTPS GET to the validated Blob URL).
-4. Loop `samples` times:
-   - Generate a fresh traceId.
-   - Call `editImage(prompt, [buffer], { traceId, timingOut })`.
-   - Collect timing from the Phase 1 logs via a small side-channel (see Implementation Note below).
-   - Discard the result buffer.
-5. Return JSON:
+3. Record `fixtureFetchStart = Date.now()`.
+4. Fetch the fixture bytes (one HTTPS GET to the validated Blob URL).
+5. Record `fixtureFetchMs = Date.now() - fixtureFetchStart`.
+6. Generate a fresh traceId and call `editImage(prompt, [buffer], { traceId, timingOut })` **once**. Discard the result buffer.
+7. Return JSON:
 
 ```json
 {
   "fixtureBytes": 1167537,
-  "samples": [
-    {
-      "traceId": "a1b2c3d4",
-      "totalMs": 33205,
-      "e0ToE2Ms": 12,
-      "e2ToE3Ms": 1,
-      "e3ToE4Ms": 29500,
-      "e4ToE5Ms": 50,
-      "e5ToE6Ms": 3642
-    }
-  ]
+  "fixtureFetchMs": 215,
+  "sample": {
+    "traceId": "a1b2c3d4",
+    "totalMs": 33205,
+    "e0ToE2Ms": 12,
+    "e2ToE3Ms": 1,
+    "e3ToE4Ms": 29500,
+    "e4ToE5Ms": 50,
+    "e5ToE6Ms": 3642
+  }
 }
 ```
 
-`fixtureBytes` is load-bearing: the Decision Matrix row "Phase 2B fast but fixture bytes differ from real action" depends on being able to compare this number against the `T2 magic-byte done (... N bytes)` line emitted by the real `editImageAction`. Do not remove it from the response, even if `samples` is empty.
+`fixtureBytes` is load-bearing: the Decision Matrix row "Phase 2B fast but fixture bytes differ from real action" depends on being able to compare this number against the `T2 magic-byte done (... N bytes)` line emitted by the real `editImageAction`. Do not remove it from the response, even if the sample fails.
+
+`fixtureFetchMs` is load-bearing too: the route runs under `maxDuration = 60`, and the Blob fetch eats into that budget before `editImage` even starts. If Blob pull ever climbs into multi-second territory, a "slow" Phase 2B sample could be entirely Blob-pull cost rather than `editImage` cost. Logging it explicitly prevents that misattribution.
 
 ### Phase 2B — implementation note (side-channel)
 
@@ -162,12 +163,12 @@ To return timing in the HTTP response (not just logs), `editImage()` optionally 
 - Does NOT consume user quota.
 - Does NOT persist results.
 - `maxDuration` is explicitly set to `60` (same as the real edit page) so the bench runs under identical Vercel limits.
-- Hard-coded upper bound: `samples <= 5` per request (protects against accidental quota burn at 147ai side).
+- **Exactly one `editImage` call per request.** No in-route loop, no `samples` parameter. Rationale: `editImage` alone takes ~30 s on the baseline fixture, so two sequential samples in the same invocation would exceed the 60 s cap and produce a false-positive timeout attributed to `editImage` rather than to the loop's own arithmetic. Multiple data points come from multiple independent HTTP requests, each with a fresh 60 s budget.
 
 ### Phase 2B — what we learn
 
-- If this route consistently finishes in ~30 s while real `editImageAction` hits 60 s → the bottleneck is in our product chain (auth, quota, DB, blob).
-- If this route hits 60 s with the same variance → the bottleneck is inside `editImage` (as Phase 1 already said) and the product chain is innocent.
+- If this route consistently finishes in ~30 s while real `editImageAction` hits 60 s → the bottleneck is **not** inside `editImage` itself with this fixture. The difference lives somewhere in the real action's execution context or input path (see Decision Matrix row 3 for the candidate list and remediation steps).
+- If this route hits 60 s with the same variance → the bottleneck is inside `editImage` (as Phase 1 already said) and the rest of the action chain is innocent.
 
 ### Phase 2B — what we don't learn
 
@@ -331,7 +332,7 @@ Per explicit user instruction:
 |---|---|---|---|---|
 | E3→E4 hangs 59 s | Also hangs 59 s | Local stable ~30 s | Vercel sin1 → 147ai network path | Try Edge runtime, different region, or proxy |
 | E3→E4 hangs 59 s | Also hangs 59 s | Local also hangs / high variance | 147ai tail latency | Upgrade Pro, add retry, or switch API |
-| E3→E4 hangs 59 s | Completes in ~30 s (same fixture bytes as real action) | Local fast | Our product chain introduces blocking | Audit auth / quota / blob path between T3 and T4 |
+| E3→E4 hangs 59 s | Completes in ~30 s (same fixture bytes as real action) | Local fast | Something in the real action's execution context differs from the bench route's (NOT auth/quota/blob — those run before `editImage` and can't extend E3→E4 retroactively). Candidates: different function instance region, different cold/warm state, different memory tier, different request-scoped headers/env, or request-body streaming back-pressure from the server-action multipart path affecting the outbound fetch. | Compare the two runtime contexts side-by-side — exact deployed region, function memory config, Node runtime version, `process.env` subset, whether the action ran on a cold or warm instance, and the exact bytes fed to `editImage`. Also try invoking `editImage` from inside `editImageAction` with the fixture buffer (bypass form parsing) to see if `FormData.arrayBuffer()` is leaving an open stream. |
 | E3→E4 hangs 59 s | Completes in ~30 s but fixture bytes differ from real action | Any | Cannot attribute yet — fixture mismatch | Re-run Phase 2B with the EXACT bytes the failing real action used; do not conclude until fixtures match |
 | E1→E2 dominates (>5 s on 1 MB input) | Any | Any | Base64 encoding abnormally slow | Investigate buffer handling, possible Vercel runtime/CPU issue |
 | E4→E5 dominates (body streaming hangs) | Same pattern | Same pattern | 147ai slow body streaming OR large result payload | Inspect payload size, check if streaming parse helps, consider smaller output format |
@@ -347,8 +348,8 @@ Per explicit user instruction:
 2. **Deploy** to production (required — bench routes need to run in the real Vercel environment). Debug routes are inert until `DEBUG_SECRET` is set.
 3. **Configure** `DEBUG_SECRET` and `DEBUG_BENCH_IMAGE_URL` in Vercel env vars and redeploy.
 4. **Run experiments:**
-   - Phase 2C locally: 10 samples with same image + prompt.
-   - Phase 2B from curl: 5 samples with same image + prompt.
+   - Phase 2C locally: 10 iterations inside the single script invocation (local machine has no 60 s cap).
+   - Phase 2B: fire **5 independent curl requests** to `/api/debug/edit-bench`, one at a time, each with its own fresh 60 s Vercel budget. Do NOT issue them in parallel (would distort both 147ai-side load and Vercel cold-start effects). Record each response's `fixtureBytes`, `fixtureFetchMs`, `totalMs`, and the E-phase breakdown.
    - Phase 3: hit both `/api/debug/sleep60?seconds=75` and `/api/debug/sleep300?seconds=75` once each.
    - Real `editImageAction`: a few attempts to confirm current behavior is unchanged.
 5. **Collect data** into a table and fill the decision matrix.
