@@ -10,6 +10,7 @@ import { copy } from '@/lib/i18n'
 import { getScenario } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
 import { showQuotaError } from '@/lib/error-toast'
+import { getImageActionErrorMessage } from '@/lib/image-action-error'
 import { PostActions } from '@/components/post-actions'
 import { RefineDialog } from '@/components/refine-dialog'
 import type { ActionResult, ImageResult } from '@/lib/types'
@@ -75,7 +76,7 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
   const result = submitResult?.success ? submitResult.data : undefined
   const errorMessage =
     submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
-      ? submitResult.error
+      ? getImageActionErrorMessage(locale, submitResult.errorCode, submitResult.error)
       : null
 
   return (

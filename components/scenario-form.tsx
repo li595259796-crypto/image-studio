@@ -12,6 +12,7 @@ import { getScenario, buildPrompt, type ScenarioId } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
 import { editImageAction } from '@/app/actions/edit'
 import { showQuotaError } from '@/lib/error-toast'
+import { getImageActionErrorMessage } from '@/lib/image-action-error'
 import { PostActions } from '@/components/post-actions'
 import { RefineDialog } from '@/components/refine-dialog'
 import { compressImage } from '@/lib/image-compress'
@@ -160,7 +161,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
   const result = submitResult?.success ? submitResult.data : undefined
   const errorMessage =
     submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
-      ? submitResult.error
+      ? getImageActionErrorMessage(locale, submitResult.errorCode, submitResult.error)
       : null
 
   return (

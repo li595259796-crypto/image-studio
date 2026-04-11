@@ -24,7 +24,12 @@ export interface ActionResult<T = unknown> {
   success: boolean
   data?: T
   error?: string
-  errorCode?: 'quota_exceeded' | 'auth_required' | 'validation_error'
+  errorCode?:
+    | 'quota_exceeded'
+    | 'auth_required'
+    | 'validation_error'
+    | 'upstream_timeout'
+    | 'upstream_unavailable'
   quota?: {
     dailyUsed: number
     dailyLimit: number

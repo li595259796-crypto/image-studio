@@ -1,8 +1,36 @@
-const API_KEY = process.env.IMAGE_API_KEY ?? ''
-const API_URL =
-  process.env.IMAGE_API_URL ?? 'https://147ai.com/v1/chat/completions'
-const MODEL = process.env.IMAGE_MODEL ?? 'gemini-3.1-flash-image-preview'
-const TIMEOUT_MS = 300_000
+const DEFAULT_TIMEOUT_MS = 60_000
+
+export type ImageApiErrorKind =
+  | 'misconfigured'
+  | 'timeout'
+  | 'upstream_http'
+  | 'invalid_response'
+  | 'network'
+
+interface ImageApiErrorOptions {
+  status?: number
+  cause?: unknown
+}
+
+export class ImageApiError extends Error {
+  kind: ImageApiErrorKind
+  status?: number
+
+  constructor(
+    kind: ImageApiErrorKind,
+    message: string,
+    options: ImageApiErrorOptions = {}
+  ) {
+    super(message)
+    this.name = 'ImageApiError'
+    this.kind = kind
+    this.status = options.status
+
+    if ('cause' in Error.prototype || options.cause !== undefined) {
+      Object.assign(this, { cause: options.cause })
+    }
+  }
+}
 
 interface ApiMessage {
   role: string
@@ -17,31 +45,63 @@ interface ApiResponse {
   }>
 }
 
+function getTimeoutMs(): number {
+  const raw = process.env.IMAGE_API_TIMEOUT_MS
+  if (!raw) return DEFAULT_TIMEOUT_MS
+
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS
+}
+
+function getApiKey(): string {
+  return process.env.IMAGE_API_KEY ?? ''
+}
+
+function getApiUrl(): string {
+  return process.env.IMAGE_API_URL ?? 'https://147ai.com/v1/chat/completions'
+}
+
+function getApiModel(): string {
+  return process.env.IMAGE_MODEL ?? 'gemini-3.1-flash-image-preview'
+}
+
 function extractImageBuffer(content: string): Buffer {
   const match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/)
   if (!match) {
-    throw new Error('No image found in API response')
+    throw new ImageApiError(
+      'invalid_response',
+      'Image API response did not contain a base64 image'
+    )
   }
   return Buffer.from(match[1], 'base64')
 }
 
 async function callApi(messages: ApiMessage[]): Promise<ApiResponse> {
-  if (!API_KEY) {
-    throw new Error('IMAGE_API_KEY environment variable is not set')
+  const apiKey = getApiKey()
+  if (!apiKey) {
+    throw new ImageApiError(
+      'misconfigured',
+      'IMAGE_API_KEY environment variable is not set'
+    )
   }
 
+  const timeoutMs = getTimeoutMs()
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  let didTimeout = false
+  const timeoutId = setTimeout(() => {
+    didTimeout = true
+    controller.abort()
+  }, timeoutMs)
 
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(getApiUrl(), {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: getApiModel(),
         messages,
         max_tokens: 8192,
       }),
@@ -50,16 +110,48 @@ async function callApi(messages: ApiMessage[]): Promise<ApiResponse> {
 
     if (!response.ok) {
       await response.text() // consume body
-      throw new Error(`Image generation failed (status ${response.status})`)
+      throw new ImageApiError(
+        'upstream_http',
+        `Image API returned status ${response.status}`,
+        { status: response.status }
+      )
     }
 
     const data = (await response.json()) as ApiResponse
 
     if (!data.choices?.[0]?.message?.content) {
-      throw new Error('API response missing expected content structure')
+      throw new ImageApiError(
+        'invalid_response',
+        'Image API response missing expected content structure'
+      )
     }
 
     return data
+  } catch (error: unknown) {
+    if (error instanceof ImageApiError) {
+      throw error
+    }
+
+    if (
+      didTimeout ||
+      (error instanceof Error && error.name === 'AbortError')
+    ) {
+      throw new ImageApiError(
+        'timeout',
+        `Image API request timed out after ${timeoutMs}ms`,
+        { cause: error }
+      )
+    }
+
+    if (error instanceof Error) {
+      throw new ImageApiError(
+        'network',
+        `Image API request failed: ${error.message}`,
+        { cause: error }
+      )
+    }
+
+    throw error
   } finally {
     clearTimeout(timeoutId)
   }

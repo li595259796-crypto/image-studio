@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { editImageAction } from '@/app/actions/edit'
 import { useLocale } from '@/components/locale-provider'
 import { showQuotaError } from '@/lib/error-toast'
+import { getImageActionErrorMessage } from '@/lib/image-action-error'
 import { PostActions } from '@/components/post-actions'
 import { getPreloadableSourceUrl } from '@/lib/edit-source'
 import { compressImage } from '@/lib/image-compress'
@@ -184,7 +185,7 @@ export function EditForm() {
   const result = submitResult?.success ? submitResult.data : undefined
   const errorMessage =
     submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
-      ? submitResult.error
+      ? getImageActionErrorMessage(locale, submitResult.errorCode, submitResult.error)
       : null
 
   return (

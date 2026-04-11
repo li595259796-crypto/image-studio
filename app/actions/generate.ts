@@ -3,6 +3,7 @@
 import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
 import { generateImage } from '@/lib/image-api'
+import { toImageActionFailureResult } from '@/lib/image-action-error'
 import { uploadImage } from '@/lib/storage'
 import { insertImage, recordUsage } from '@/lib/db/queries'
 import type { ActionResult, ImageResult } from '@/lib/types'
@@ -85,6 +86,13 @@ export async function generateImageAction(
     return { success: true, data: { imageId: record.id, blobUrl: url } }
   } catch (err: unknown) {
     tlog(`TX error: ${err instanceof Error ? err.message : String(err)}`, t0)
-    return { success: false, error: 'Failed to generate image. Please try again.' }
+    console.error('[image-action-failure]', {
+      operation: 'generate',
+      durationMs: Date.now() - t0,
+      errorCode: err instanceof Error && 'kind' in err ? (err as { kind?: string }).kind : 'unexpected',
+      message: err instanceof Error ? err.message : String(err),
+      status: err instanceof Error && 'status' in err ? (err as { status?: number }).status ?? null : null,
+    })
+    return toImageActionFailureResult('generate', err)
   }
 }
