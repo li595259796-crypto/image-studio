@@ -21,6 +21,9 @@ interface LocaleCopy {
     samplesLabel: string
     samples: string[]
     sampleAltPrefix: string
+    valuePill: string
+    workbenchLabel: string
+    workbenchDescription: string
   }
   nav: {
     generate: string
@@ -106,14 +109,23 @@ interface LocaleCopy {
     signupLink: string
     loginLink: string
     unexpectedError: string
+    accessHeading: string
+    accessSupport: string
   }
   gallery: {
     copyToGenerate: string
     copyPrompt: string
     continueEdit: string
+    libraryTitle: string
+    libraryDescription: string
+    emptyTitle: string
+    emptyDescription: string
+    filteredEmptyTitle: string
+    filteredEmptyDescription: string
   }
   settings: {
     pageTitle: string
+    pageDescription: string
     profileSection: string
     nameLabel: string
     namePlaceholder: string
@@ -140,6 +152,8 @@ interface LocaleCopy {
   upgrade: {
     pageTitle: string
     pageDescription: string
+    usageTitle: string
+    usageDescription: string
     currentPlan: string
     contactUs: string
     contactEmail: string
@@ -164,7 +178,34 @@ interface LocaleCopy {
   }
 }
 
-export const copy: Record<Locale, LocaleCopy> = {
+type DeepReadonly<T> =
+  T extends (...args: never[]) => unknown
+    ? T
+    : T extends readonly (infer Item)[]
+      ? ReadonlyArray<DeepReadonly<Item>>
+      : T extends object
+        ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+        : T
+
+function deepFreeze<T>(value: T): DeepReadonly<T> {
+  if (Array.isArray(value)) {
+    value.forEach((item) => {
+      deepFreeze(item)
+    })
+    return Object.freeze(value) as DeepReadonly<T>
+  }
+
+  if (value && typeof value === 'object') {
+    Object.values(value as Record<string, unknown>).forEach((nestedValue) => {
+      deepFreeze(nestedValue)
+    })
+    return Object.freeze(value) as DeepReadonly<T>
+  }
+
+  return value as DeepReadonly<T>
+}
+
+export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
   zh: {
     landing: {
       brand: BRAND_NAME,
@@ -186,6 +227,9 @@ export const copy: Record<Locale, LocaleCopy> = {
         '高质感静物广告',
       ],
       sampleAltPrefix: '示例图',
+      valuePill: '公共创作',
+      workbenchLabel: '工作台',
+      workbenchDescription: '在工作台里快速生成、调整和继续编辑图像。',
     },
     nav: {
       generate: '创作',
@@ -305,14 +349,23 @@ export const copy: Record<Locale, LocaleCopy> = {
       signupLink: '注册',
       loginLink: '登录',
       unexpectedError: '发生意外错误，请重试',
+      accessHeading: '访问你的账户',
+      accessSupport: '登录后可继续创作、查看作品并管理账户。',
     },
     gallery: {
       copyToGenerate: '复制到生成页',
       copyPrompt: '复制 Prompt',
       continueEdit: '继续编辑',
+      libraryTitle: '作品库',
+      libraryDescription: '集中查看你生成和保存的图像。',
+      emptyTitle: '还没有作品',
+      emptyDescription: '先去工作台生成第一张图像吧。',
+      filteredEmptyTitle: '没有符合筛选条件的作品',
+      filteredEmptyDescription: '试试调整筛选条件，或清除筛选后再查看作品库。',
     },
     settings: {
       pageTitle: '账户设置',
+      pageDescription: '管理个人资料、语言偏好和安全设置。',
       profileSection: '基本信息',
       nameLabel: '昵称',
       namePlaceholder: '输入昵称',
@@ -339,6 +392,8 @@ export const copy: Record<Locale, LocaleCopy> = {
     upgrade: {
       pageTitle: '升级方案',
       pageDescription: '解锁更多创作额度',
+      usageTitle: '用量说明',
+      usageDescription: '查看当前方案每天和每月可用的生成额度。',
       currentPlan: '当前方案',
       contactUs: '联系我们',
       contactEmail: '升级咨询：support@image-studio.site',
@@ -383,6 +438,9 @@ export const copy: Record<Locale, LocaleCopy> = {
         'Premium still-life ad',
       ],
       sampleAltPrefix: 'Sample image',
+      valuePill: 'Public creation',
+      workbenchLabel: 'Workbench',
+      workbenchDescription: 'Create, refine, and continue editing images from a single workbench.',
     },
     nav: {
       generate: 'Generate',
@@ -502,14 +560,23 @@ export const copy: Record<Locale, LocaleCopy> = {
       signupLink: 'Sign Up',
       loginLink: 'Sign In',
       unexpectedError: 'An unexpected error occurred. Please try again.',
+      accessHeading: 'Access your account',
+      accessSupport: 'Sign in to continue creating, reviewing outputs, and managing your workspace.',
     },
     gallery: {
       copyToGenerate: 'Copy to Generate',
       copyPrompt: 'Copy Prompt',
       continueEdit: 'Continue Edit',
+      libraryTitle: 'Library',
+      libraryDescription: 'See the images you generate and save in one place.',
+      emptyTitle: 'No creations yet',
+      emptyDescription: 'Head to the workbench to generate your first image.',
+      filteredEmptyTitle: 'No creations match this filter',
+      filteredEmptyDescription: 'Try adjusting the filter or clear it to browse the full library.',
     },
     settings: {
       pageTitle: 'Account Settings',
+      pageDescription: 'Manage your profile, language preference, and security settings.',
       profileSection: 'Profile',
       nameLabel: 'Display Name',
       namePlaceholder: 'Enter display name',
@@ -536,6 +603,8 @@ export const copy: Record<Locale, LocaleCopy> = {
     upgrade: {
       pageTitle: 'Upgrade Plans',
       pageDescription: 'Unlock more creative credits',
+      usageTitle: 'Usage',
+      usageDescription: 'See how many generations your current plan includes each day and month.',
       currentPlan: 'Current Plan',
       contactUs: 'Contact Us',
       contactEmail: 'Upgrade inquiries: support@image-studio.site',
@@ -559,4 +628,4 @@ export const copy: Record<Locale, LocaleCopy> = {
       timeRange: 'Time range',
     },
   },
-}
+})
