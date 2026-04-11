@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
 import { Toaster } from 'sonner'
 import { LocaleProvider } from '@/components/locale-provider'
-import { BRAND_NAME } from '@/lib/i18n'
+import { BRAND_NAME, defaultLocale } from '@/lib/i18n'
 import './globals.css'
 
 const geistSans = Geist({
@@ -28,10 +28,11 @@ export default function RootLayout({
 }>) {
   return (
     <html
+      lang={defaultLocale}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-background text-foreground">
         <SessionProvider>
           <LocaleProvider>{children}</LocaleProvider>
         </SessionProvider>
