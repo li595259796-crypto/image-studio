@@ -1,9 +1,11 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getQuotaInfo, getUserProfile } from '@/lib/db/queries'
-import { NavBar } from '@/components/nav-bar'
 import { LocaleSync } from '@/components/locale-sync'
-import type { Locale } from '@/lib/i18n'
+import { LanguageToggle } from '@/components/language-toggle'
+import { updateLocaleAction } from '@/app/actions/settings'
+import { DashboardShell } from '@/components/workbench/dashboard-shell'
+import { defaultLocale, type Locale } from '@/lib/i18n'
 
 export default async function DashboardLayout({
   children,
@@ -21,6 +23,7 @@ export default async function DashboardLayout({
   // Single guarded block for all DB reads
   let profile: { name: string | null; email: string; image: string | null; locale: string } | null = null
   let quota = { dailyUsed: 0, dailyLimit: 10 }
+  let profileLoaded = false
 
   try {
     const [profileResult, quotaInfo] = await Promise.all([
@@ -29,6 +32,7 @@ export default async function DashboardLayout({
     ])
     profile = profileResult
     quota = { dailyUsed: quotaInfo.dailyUsed, dailyLimit: quotaInfo.dailyLimit }
+    profileLoaded = true
   } catch {
     // Fall back to session data if DB is unavailable
   }
@@ -40,15 +44,23 @@ export default async function DashboardLayout({
   }
 
   const rawLocale = profile?.locale
-  const dbLocale: Locale = rawLocale === 'en' || rawLocale === 'zh' ? rawLocale : 'zh'
+  const dbLocale: Locale | null =
+    rawLocale === 'en' || rawLocale === 'zh'
+      ? rawLocale
+      : profileLoaded
+        ? defaultLocale
+        : null
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <LocaleSync locale={dbLocale} />
-      <NavBar user={userInfo} quota={quota} />
-      <main className="flex-1">
-        <div className="mx-auto max-w-6xl p-6">{children}</div>
-      </main>
+    <div className="min-h-screen">
+      <LocaleSync locale={dbLocale} userId={userId} />
+      <DashboardShell
+        user={userInfo}
+        quota={quota}
+        localeControl={<LanguageToggle onPersist={updateLocaleAction} variant="shell" />}
+      >
+        {children}
+      </DashboardShell>
     </div>
   )
 }
