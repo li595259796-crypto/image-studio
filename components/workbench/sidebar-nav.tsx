@@ -1,12 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowUpCircle,
-  ChevronsUpDown,
   Images,
   LogOut,
   Settings,
@@ -16,15 +15,8 @@ import {
 import { useLocale } from '@/components/locale-provider'
 import { QuotaBadge } from '@/components/quota-badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { BRAND_NAME } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -67,7 +59,6 @@ export function SidebarNav({
   onNavigate,
 }: SidebarNavProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { dictionary } = useLocale()
 
   const navItems: WorkbenchNavItem[] = [
@@ -170,59 +161,39 @@ export function SidebarNav({
             })}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger className="cursor-pointer rounded-2xl border border-border/70 bg-background/80 p-3 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring">
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  {user.avatarUrl ? (
-                    <AvatarImage src={user.avatarUrl} alt={user.displayName ?? user.email} />
-                  ) : null}
-                  <AvatarFallback>{getInitials(user.email, user.displayName)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {user.displayName ?? user.email}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-                </div>
-                <ChevronsUpDown className="size-4 text-muted-foreground" />
+          <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
+            <Link
+              href="/settings"
+              onClick={onNavigate}
+              className="flex items-center gap-3 rounded-xl text-left outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Avatar>
+                {user.avatarUrl ? (
+                  <AvatarImage src={user.avatarUrl} alt={user.displayName ?? user.email} />
+                ) : null}
+                <AvatarFallback>{getInitials(user.email, user.displayName)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {user.displayName ?? user.email}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
               </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={8} className="w-64">
-              <DropdownMenuLabel>{user.displayName ?? user.email}</DropdownMenuLabel>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => {
-                  onNavigate?.()
-                  router.push('/settings')
-                }}
-              >
-                <Settings className="size-4" />
-                {dictionary.nav.settings}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => {
-                  onNavigate?.()
-                  router.push('/upgrade')
-                }}
-              >
-                <ArrowUpCircle className="size-4" />
-                {dictionary.nav.upgrade}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => {
-                  onNavigate?.()
-                  signOut({ callbackUrl: '/login', redirect: true })
-                }}
-              >
-                <LogOut className="size-4" />
-                {dictionary.nav.logout}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Settings className="size-4 text-muted-foreground" />
+            </Link>
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-3 w-full justify-start gap-2 rounded-xl px-2"
+              onClick={() => {
+                onNavigate?.()
+                signOut({ callbackUrl: '/login', redirect: true })
+              }}
+            >
+              <LogOut className="size-4" />
+              {dictionary.nav.logout}
+            </Button>
+          </div>
         </div>
       </div>
     </aside>
