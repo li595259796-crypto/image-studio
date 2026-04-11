@@ -2,8 +2,6 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getQuotaInfo, getUserProfile } from '@/lib/db/queries'
 import { LocaleSync } from '@/components/locale-sync'
-import { LanguageToggle } from '@/components/language-toggle'
-import { updateLocaleAction } from '@/app/actions/settings'
 import { DashboardShell } from '@/components/workbench/dashboard-shell'
 import { defaultLocale, type Locale } from '@/lib/i18n'
 
@@ -54,11 +52,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen">
       <LocaleSync locale={dbLocale} userId={userId} />
-      <DashboardShell
-        user={userInfo}
-        quota={quota}
-        localeControl={<LanguageToggle onPersist={updateLocaleAction} variant="shell" />}
-      >
+      <DashboardShell user={userInfo} quota={quota}>
         {children}
       </DashboardShell>
     </div>

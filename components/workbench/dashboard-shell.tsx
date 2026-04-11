@@ -16,16 +16,10 @@ import {
 export interface DashboardShellProps {
   user: { email: string; displayName?: string; avatarUrl?: string }
   quota: { dailyUsed: number; dailyLimit: number }
-  localeControl: ReactNode
   children: ReactNode
 }
 
-export function DashboardShell({
-  user,
-  quota,
-  localeControl,
-  children,
-}: DashboardShellProps) {
+export function DashboardShell({ user, quota, children }: DashboardShellProps) {
   const { locale, dictionary } = useLocale()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -35,7 +29,6 @@ export function DashboardShell({
         <SidebarNav
           user={user}
           quota={quota}
-          localeControl={localeControl}
           variant="desktop"
         />
         <div className="min-w-0 bg-background/90 lg:border-l lg:border-border/70">
@@ -64,7 +57,6 @@ export function DashboardShell({
                   <SidebarNav
                     user={user}
                     quota={quota}
-                    localeControl={localeControl}
                     variant="drawer"
                     onNavigate={() => setMobileNavOpen(false)}
                   />

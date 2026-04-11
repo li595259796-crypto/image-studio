@@ -1,6 +1,5 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
@@ -39,7 +38,6 @@ export interface WorkbenchNavItem {
 interface SidebarNavProps {
   user: { email: string; displayName?: string; avatarUrl?: string }
   quota: { dailyUsed: number; dailyLimit: number }
-  localeControl: ReactNode
   variant?: 'desktop' | 'drawer'
   onNavigate?: () => void
 }
@@ -65,7 +63,6 @@ function isActivePath(pathname: string, href: WorkbenchNavItem['href']) {
 export function SidebarNav({
   user,
   quota,
-  localeControl,
   variant = 'desktop',
   onNavigate,
 }: SidebarNavProps) {
@@ -143,8 +140,6 @@ export function SidebarNav({
         </nav>
 
         <div className="mt-5 grid gap-3 lg:mt-auto">
-          <div>{localeControl}</div>
-
           <QuotaBadge
             dailyUsed={quota.dailyUsed}
             dailyLimit={quota.dailyLimit}
