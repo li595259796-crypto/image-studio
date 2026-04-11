@@ -33,15 +33,7 @@ export function EditForm() {
   const [isDragging, setIsDragging] = useState(false)
   const [isPreloadingSource, setIsPreloadingSource] = useState(false)
   const [isCompressing, setIsCompressing] = useState(false)
-  const [prompt, setPrompt] = useState('')
-
-  useEffect(() => {
-    const urlPrompt = searchParams.get('prompt')
-    if (urlPrompt && !prompt) {
-      setPrompt(urlPrompt)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  const [prompt, setPrompt] = useState(() => searchParams.get('prompt') ?? '')
 
   useEffect(() => {
     return () => {
@@ -127,7 +119,7 @@ export function EditForm() {
     return () => {
       cancelled = true
     }
-  }, [addFiles, searchParams])
+  }, [addFiles, files.length, searchParams])
 
   function removeFile(index: number) {
     setFiles((prev) => {

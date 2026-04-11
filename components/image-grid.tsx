@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { useLocale } from '@/components/locale-provider'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ImageCard } from '@/components/image-card'
@@ -13,6 +14,7 @@ interface ImageGridProps {
   onLoadMore: () => void
   hasMore: boolean
   loading: boolean
+  isFiltered?: boolean
   onImageDeleted?: (imageId: string) => void
   onFavoriteChanged?: (imageId: string, isFavorite: boolean) => void
 }
@@ -22,9 +24,11 @@ export function ImageGrid({
   onLoadMore,
   hasMore,
   loading,
+  isFiltered = false,
   onImageDeleted,
   onFavoriteChanged,
 }: ImageGridProps) {
+  const { locale, dictionary } = useLocale()
   const [selectedImage, setSelectedImage] = useState<ImageRecord | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
 
@@ -48,13 +52,20 @@ export function ImageGrid({
   }
 
   if (!loading && images.length === 0) {
+    const emptyTitle = isFiltered
+      ? dictionary.gallery.filteredEmptyTitle
+      : dictionary.gallery.emptyTitle
+    const emptyDescription = isFiltered
+      ? dictionary.gallery.filteredEmptyDescription
+      : dictionary.gallery.emptyDescription
+
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
         <p className="text-lg font-medium text-muted-foreground">
-          No images yet
+          {emptyTitle}
         </p>
         <p className="text-sm text-muted-foreground/70">
-          Generate or edit your first image to see it here.
+          {emptyDescription}
         </p>
       </div>
     )
@@ -90,7 +101,7 @@ export function ImageGrid({
             className="gap-2"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Load More
+            {locale === 'zh' ? '加载更多' : 'Load More'}
           </Button>
         </div>
       )}

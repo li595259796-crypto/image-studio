@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback, useTransition } from 'react'
 import { GalleryFilters, type TimeRange } from '@/components/gallery-filters'
 import { ImageGrid } from '@/components/image-grid'
 import { getImages } from '@/app/actions/gallery'
+import { useLocale } from '@/components/locale-provider'
 import type { ImageRecord } from '@/lib/types'
 
 const PAGE_SIZE = 20
 
 export default function GalleryPage() {
+  const { locale, dictionary } = useLocale()
   const [images, setImages] = useState<ImageRecord[]>([])
   const [total, setTotal] = useState(0)
   const [isPending, startTransition] = useTransition()
@@ -24,6 +26,11 @@ export default function GalleryPage() {
       }
     ) => {
       startTransition(async () => {
+        if (offset === 0) {
+          setImages([])
+          setTotal(0)
+        }
+
         const res = await getImages(offset, PAGE_SIZE, filters)
         if (res.success && res.data) {
           setImages((prev) =>
@@ -37,9 +44,6 @@ export default function GalleryPage() {
   )
 
   useEffect(() => {
-    setImages([])
-    setTotal(0)
-
     loadImages(0, {
       favoriteOnly: favoriteOnly || undefined,
       timeRange: timeRange === 'all' ? undefined : timeRange,
@@ -74,17 +78,22 @@ export default function GalleryPage() {
   }
 
   const hasMore = images.length < total
+  const isFiltered = favoriteOnly || timeRange !== 'all'
+  const summary =
+    total > 0
+      ? locale === 'zh'
+        ? `共 ${total} 张作品`
+        : `${total} image${total === 1 ? '' : 's'} in your library`
+      : dictionary.gallery.libraryDescription
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Gallery</h1>
-          <p className="text-sm text-muted-foreground">
-            {total > 0
-              ? `${total} image${total === 1 ? '' : 's'} in your collection`
-              : 'Your generated and edited images will appear here.'}
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {dictionary.gallery.libraryTitle}
+          </h1>
+          <p className="text-sm text-muted-foreground">{summary}</p>
         </div>
 
         <GalleryFilters
@@ -99,6 +108,7 @@ export default function GalleryPage() {
         onLoadMore={handleLoadMore}
         hasMore={hasMore}
         loading={isPending}
+        isFiltered={isFiltered}
         onImageDeleted={handleImageDeleted}
         onFavoriteChanged={handleFavoriteChanged}
       />

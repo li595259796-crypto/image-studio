@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useLocale } from '@/components/locale-provider'
 import { copy } from '@/lib/i18n'
@@ -11,16 +11,11 @@ import type { ScenarioId } from '@/lib/scenarios'
 
 export function GeneratePageClient() {
   const searchParams = useSearchParams()
-  const [selectedScenario, setSelectedScenario] = useState<ScenarioId | null>(null)
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioId | null>(() =>
+    searchParams.get('mode') === 'freeform' ? 'freeform' : null
+  )
   const { locale } = useLocale()
   const t = copy[locale].scenario
-
-  // Auto-select freeform if URL params indicate it (from Gallery "Copy to Generate")
-  useEffect(() => {
-    if (searchParams.get('mode') === 'freeform') {
-      setSelectedScenario('freeform')
-    }
-  }, [searchParams])
 
   function handleBack() {
     setSelectedScenario(null)

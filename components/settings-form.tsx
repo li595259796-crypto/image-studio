@@ -31,8 +31,9 @@ interface SettingsFormProps {
 export function SettingsForm({ profile }: SettingsFormProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { locale, setLocale, dictionary } = useLocale()
+  const { setLocale, dictionary } = useLocale()
   const t = dictionary.settings
+  const avatarObjectUrlRef = useRef<string | null>(null)
 
   const [displayName, setDisplayName] = useState(profile.name ?? '')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -51,17 +52,29 @@ export function SettingsForm({ profile }: SettingsFormProps) {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.image)
 
   useEffect(() => {
-    if (!avatarFile) {
-      setAvatarPreview(profile.image)
-      return
+    return () => {
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current)
+      }
     }
-    const url = URL.createObjectURL(avatarFile)
-    setAvatarPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [avatarFile, profile.image])
+  }, [])
 
   function handleAvatarChange(file: File | null) {
+    if (avatarObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarObjectUrlRef.current)
+      avatarObjectUrlRef.current = null
+    }
+
     setAvatarFile(file)
+
+    if (file) {
+      const nextAvatarPreview = URL.createObjectURL(file)
+      avatarObjectUrlRef.current = nextAvatarPreview
+      setAvatarPreview(nextAvatarPreview)
+      return
+    }
+
+    setAvatarPreview(profile.image)
   }
 
   function handleProfileSave() {

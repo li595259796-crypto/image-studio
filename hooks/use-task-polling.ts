@@ -2,7 +2,7 @@
 // No live component uses this after the sync rollback on 2026-04-10.
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { getTaskStatus } from '@/app/actions/tasks'
 import type { TaskStatusResult } from '@/lib/types'
 
@@ -18,33 +18,75 @@ interface UseTaskPollingReturn {
   isPolling: boolean
 }
 
+interface PollState {
+  taskId: string | null
+  data: TaskStatusResult | null
+  elapsed: number
+}
+
+type PollAction =
+  | { type: 'reset'; taskId: string | null }
+  | { type: 'setData'; taskId: string; data: TaskStatusResult }
+  | { type: 'setElapsed'; elapsed: number }
+
+function createInitialState(taskId: string | null): PollState {
+  return {
+    taskId,
+    data: null,
+    elapsed: 0,
+  }
+}
+
+function pollReducer(state: PollState, action: PollAction): PollState {
+  switch (action.type) {
+    case 'reset':
+      return createInitialState(action.taskId)
+    case 'setData':
+      return action.taskId === state.taskId
+        ? { ...state, data: action.data }
+        : state
+    case 'setElapsed':
+      return { ...state, elapsed: action.elapsed }
+    default:
+      return state
+  }
+}
+
 export function useTaskPolling(taskId: string | null): UseTaskPollingReturn {
-  const [data, setData] = useState<TaskStatusResult | null>(null)
-  const [elapsed, setElapsed] = useState(0)
-  const [isPolling, setIsPolling] = useState(false)
+  const [state, dispatch] = useReducer(pollReducer, taskId, createInitialState)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const activeTaskIdRef = useRef<string | null>(taskId)
 
   const poll = useCallback(async () => {
     if (!taskId) return
-    const res = await getTaskStatus(taskId)
+
+    const requestedTaskId = taskId
+    const res = await getTaskStatus(requestedTaskId)
+
+    if (activeTaskIdRef.current !== requestedTaskId) {
+      return
+    }
+
     if (res.success && res.data) {
-      setData(res.data)
+      dispatch({ type: 'setData', taskId: requestedTaskId, data: res.data })
       if (res.data.status === 'completed' || res.data.status === 'failed') {
-        setIsPolling(false)
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
       }
     }
   }, [taskId])
 
   useEffect(() => {
+    activeTaskIdRef.current = taskId
+    dispatch({ type: 'reset', taskId })
+
     if (!taskId) {
-      setIsPolling(false)
-      setData(null)
-      setElapsed(0)
       return
     }
 
-    setIsPolling(true)
     void poll()
 
     intervalRef.current = setInterval(() => {
@@ -58,22 +100,31 @@ export function useTaskPolling(taskId: string | null): UseTaskPollingReturn {
   }, [taskId, poll])
 
   useEffect(() => {
-    if (!isPolling && intervalRef.current) {
+    const hasTerminalStatus =
+      state.taskId === taskId &&
+      (state.data?.status === 'completed' || state.data?.status === 'failed')
+
+    if ((!taskId || hasTerminalStatus) && intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
-  }, [isPolling])
+  }, [state.data?.status, state.taskId, taskId])
 
   useEffect(() => {
-    if (!data?.createdAt || data.status === 'completed' || data.status === 'failed') {
+    if (
+      state.taskId !== taskId ||
+      !state.data?.createdAt ||
+      state.data.status === 'completed' ||
+      state.data.status === 'failed'
+    ) {
       if (elapsedRef.current) clearInterval(elapsedRef.current)
       return
     }
 
-    const createdAtMs = new Date(data.createdAt).getTime()
+    const createdAtMs = new Date(state.data.createdAt).getTime()
 
     function tick() {
-      setElapsed(Math.floor((Date.now() - createdAtMs) / 1000))
+      dispatch({ type: 'setElapsed', elapsed: Math.floor((Date.now() - createdAtMs) / 1000) })
     }
 
     tick()
@@ -82,25 +133,36 @@ export function useTaskPolling(taskId: string | null): UseTaskPollingReturn {
     return () => {
       if (elapsedRef.current) clearInterval(elapsedRef.current)
     }
-  }, [data?.createdAt, data?.status])
+  }, [state.data?.createdAt, state.data?.status, state.taskId, taskId])
 
   useEffect(() => {
     function handleVisibility() {
-      if (document.visibilityState === 'visible' && isPolling) {
+      if (
+        document.visibilityState === 'visible' &&
+        taskId &&
+        (state.taskId !== taskId ||
+          (state.data?.status !== 'completed' && state.data?.status !== 'failed'))
+      ) {
         void poll()
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [isPolling, poll])
+  }, [poll, state.data?.status, state.taskId, taskId])
+
+  const currentData = state.taskId === taskId ? state.data : null
+  const isPolling =
+    Boolean(taskId) &&
+    (state.taskId !== taskId ||
+      (currentData?.status !== 'completed' && currentData?.status !== 'failed'))
 
   return {
-    status: data?.status ?? null,
-    result: data?.result,
-    error: data?.error,
-    attempts: data?.attempts ?? 0,
-    maxAttempts: data?.maxAttempts ?? 3,
-    elapsed,
+    status: currentData?.status ?? null,
+    result: currentData?.result,
+    error: currentData?.error,
+    attempts: currentData?.attempts ?? 0,
+    maxAttempts: currentData?.maxAttempts ?? 3,
+    elapsed: state.taskId === taskId ? state.elapsed : 0,
     isPolling,
   }
 }
