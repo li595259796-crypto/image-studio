@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import type { AdapterAccountType } from 'next-auth/adapters'
+import type { PersistedCanvasState } from '@/lib/canvas/state'
 
 // ============================================================
 // users (NextAuth compatible + password field)
@@ -76,7 +77,7 @@ export const canvases = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').default('Untitled Canvas').notNull(),
-    state: jsonb('state').$type<Record<string, unknown>>().notNull(),
+    state: jsonb('state').$type<PersistedCanvasState>().notNull(),
     thumbnailUrl: text('thumbnailUrl'),
     lastOpenedAt: timestamp('lastOpenedAt', {
       withTimezone: true,

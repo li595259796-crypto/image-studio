@@ -1,8 +1,9 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { canvases } from '@/lib/db/schema'
+import type { PersistedCanvasState } from '@/lib/canvas/state'
 
-export type CanvasStateRecord = Record<string, unknown>
+export type CanvasStateRecord = PersistedCanvasState
 
 export async function listCanvasesForUser(userId: string) {
   return db
@@ -99,3 +100,8 @@ export async function deleteCanvasForUser(userId: string, canvasId: string) {
 
   return result[0] ?? null
 }
+
+export type CanvasListItem = Awaited<ReturnType<typeof listCanvasesForUser>>[number]
+export type CanvasRecord = NonNullable<
+  Awaited<ReturnType<typeof getCanvasByIdAndUser>>
+>
