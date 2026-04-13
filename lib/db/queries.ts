@@ -45,7 +45,9 @@ export async function getQuotaInfo(userId: string): Promise<{
     throw new Error('User not found')
   }
 
-  const dailyLimit = user.dailyQuota
+  // P6C raises the free daily quota from 10 -> 20. Keep a runtime floor so
+  // legacy rows behave correctly even before an operational backfill runs.
+  const dailyLimit = Math.max(user.dailyQuota, 20)
   const monthlyLimit = user.monthlyQuota
 
   const now = new Date()
@@ -63,6 +65,7 @@ export async function getQuotaInfo(userId: string): Promise<{
       .where(
         and(
           eq(usageLogs.userId, userId),
+          eq(usageLogs.quotaSource, 'platform'),
           gte(usageLogs.createdAt, startOfDay)
         )
       ),
@@ -72,6 +75,7 @@ export async function getQuotaInfo(userId: string): Promise<{
       .where(
         and(
           eq(usageLogs.userId, userId),
+          eq(usageLogs.quotaSource, 'platform'),
           gte(usageLogs.createdAt, startOfMonth)
         )
       ),
@@ -87,6 +91,32 @@ export async function getQuotaInfo(userId: string): Promise<{
     monthlyLimit,
     allowed: dailyUsed < dailyLimit && monthlyUsed < monthlyLimit,
   }
+}
+
+export async function getDailyUsageCountForQuotaSource(
+  userId: string,
+  quotaSource: 'platform' | 'byok',
+  since?: Date
+): Promise<number> {
+  const now = new Date()
+  const startOfDay =
+    since ??
+    new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    )
+
+  const result = await db
+    .select({ value: count() })
+    .from(usageLogs)
+    .where(
+      and(
+        eq(usageLogs.userId, userId),
+        eq(usageLogs.quotaSource, quotaSource),
+        gte(usageLogs.createdAt, startOfDay)
+      )
+    )
+
+  return result[0]?.value ?? 0
 }
 
 export async function recordUsage(

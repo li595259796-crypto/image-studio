@@ -26,6 +26,7 @@ interface LocaleCopy {
     workbenchDescription: string
   }
   nav: {
+    canvas: string
     generate: string
     edit: string
     gallery: string
@@ -36,6 +37,31 @@ interface LocaleCopy {
     localeEn: string
     settings: string
     upgrade: string
+  }
+  canvas: {
+    listTitle: string
+    listDescription: string
+    emptyTitle: string
+    emptyDescription: string
+    newCanvas: string
+    untitled: string
+    openAction: string
+    renameAction: string
+    deleteAction: string
+    detailTitle: string
+    detailDescription: string
+    autosaveIdle: string
+    autosaveSaving: string
+    autosaveSaved: string
+    autosaveError: string
+    panelTitle: string
+    panelDescription: string
+    modelLabel: string
+    jobsLabel: string
+    clearFinished: string
+    statusGenerating: string
+    statusCompleted: string
+    statusFailed: string
   }
   legal: {
     termsLink: string
@@ -126,6 +152,11 @@ interface LocaleCopy {
   settings: {
     pageTitle: string
     pageDescription: string
+    tabs: {
+      account: string
+      security: string
+      apiKeys: string
+    }
     profileSection: string
     nameLabel: string
     namePlaceholder: string
@@ -148,6 +179,48 @@ interface LocaleCopy {
     currentPasswordWrong: string
     localeSuccess: string
     localeFailed: string
+    apiKeys: {
+      loadingLabel: string
+      retryLabel: string
+      loadFailed: string
+      saveSuccess: string
+      saveFailed: string
+      deleteSuccess: string
+      deleteFailed: string
+      testUnavailable: string
+      summaryTitle: string
+      summaryDescription: string
+      betaLabel: string
+      fairUseLabel: string
+      fairUseDescription: string
+      currentKeyLabel: string
+      configuredLabel: string
+      unconfiguredLabel: string
+      emptyKeyLabel: string
+      inputLabel: string
+      inputPlaceholder: string
+      saveLabel: string
+      savingLabel: string
+      deleteLabel: string
+      deletingLabel: string
+      testLabel: string
+      testingLabel: string
+      errorPrefix: string
+      providers: {
+        google: {
+          title: string
+          description: string
+        }
+        bytedance: {
+          title: string
+          description: string
+        }
+        alibaba: {
+          title: string
+          description: string
+        }
+      }
+    }
   }
   upgrade: {
     pageTitle: string
@@ -232,6 +305,7 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       workbenchDescription: '在工作台里快速生成、调整和继续编辑图像。',
     },
     nav: {
+      canvas: '画布',
       generate: '创作',
       edit: '编辑',
       gallery: '画廊',
@@ -242,6 +316,31 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       localeEn: 'EN',
       settings: '账户设置',
       upgrade: '升级方案',
+    },
+    canvas: {
+      listTitle: '我的画布',
+      listDescription: '围绕一个创作项目持续生成、整理和比较图像。',
+      emptyTitle: '还没有画布',
+      emptyDescription: '创建第一块画布，开始你的多模型创作流程。',
+      newCanvas: '新建画布',
+      untitled: '未命名画布',
+      openAction: '打开画布',
+      renameAction: '重命名',
+      deleteAction: '从列表移除',
+      detailTitle: '创作画布',
+      detailDescription: '在同一个项目上下文里继续整理和推进你的创作。',
+      autosaveIdle: '已同步',
+      autosaveSaving: '保存中…',
+      autosaveSaved: '刚刚保存',
+      autosaveError: '保存失败',
+      panelTitle: '多模型生成',
+      panelDescription: '用同一个 prompt 同时比较多个模型的结果。',
+      modelLabel: '模型',
+      jobsLabel: '生成结果',
+      clearFinished: '清除已完成',
+      statusGenerating: '生成中',
+      statusCompleted: '已完成',
+      statusFailed: '失败',
     },
     legal: {
       termsLink: '服务条款',
@@ -364,6 +463,11 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       filteredEmptyDescription: '试试调整筛选条件，或清除筛选后再查看作品库。',
     },
     settings: {
+      tabs: {
+        account: 'Account',
+        security: 'Security',
+        apiKeys: 'API Keys',
+      },
       pageTitle: '账户设置',
       pageDescription: '管理个人资料、语言偏好和安全设置。',
       profileSection: '基本信息',
@@ -388,6 +492,48 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       currentPasswordWrong: '当前密码错误',
       localeSuccess: '语言偏好已保存',
       localeFailed: '语言切换失败',
+      apiKeys: {
+        loadingLabel: 'Loading API keys...',
+        retryLabel: 'Retry',
+        loadFailed: 'Failed to load API keys',
+        saveSuccess: 'API key saved',
+        saveFailed: 'Failed to save API key',
+        deleteSuccess: 'API key removed',
+        deleteFailed: 'Failed to remove API key',
+        testUnavailable: 'API key verification will arrive in a later phase.',
+        summaryTitle: 'Bring Your Own API Keys',
+        summaryDescription: 'Connect your own model credentials so the workbench can use your providers directly.',
+        betaLabel: 'Beta',
+        fairUseLabel: 'Fair use',
+        fairUseDescription: 'BYOK calls skip platform quota accounting, but they still follow fair-use protections and server-side security checks.',
+        currentKeyLabel: 'Current key',
+        configuredLabel: 'Configured',
+        unconfiguredLabel: 'Not configured',
+        emptyKeyLabel: 'No key saved yet',
+        inputLabel: 'New API key',
+        inputPlaceholder: 'Paste an API key',
+        saveLabel: 'Save',
+        savingLabel: 'Saving...',
+        deleteLabel: 'Delete',
+        deletingLabel: 'Deleting...',
+        testLabel: 'Test',
+        testingLabel: 'Testing...',
+        errorPrefix: 'Error:',
+        providers: {
+          google: {
+            title: 'Google AI Studio',
+            description: 'Use Gemini Flash image generation with your own key.',
+          },
+          bytedance: {
+            title: 'ByteDance Ark',
+            description: 'Use Seedream generation with your own Ark API token.',
+          },
+          alibaba: {
+            title: 'Alibaba DashScope',
+            description: 'Use Tongyi Wanx generation with your own DashScope key.',
+          },
+        },
+      },
     },
     upgrade: {
       pageTitle: '升级方案',
@@ -443,6 +589,7 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       workbenchDescription: 'Create, refine, and continue editing images from a single workbench.',
     },
     nav: {
+      canvas: 'Canvas',
       generate: 'Generate',
       edit: 'Edit',
       gallery: 'Gallery',
@@ -453,6 +600,31 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       localeEn: 'EN',
       settings: 'Settings',
       upgrade: 'Upgrade',
+    },
+    canvas: {
+      listTitle: 'My Canvases',
+      listDescription: 'Keep each creative project in one shared visual workspace.',
+      emptyTitle: 'No canvases yet',
+      emptyDescription: 'Create your first canvas to start a multi-model creative flow.',
+      newCanvas: 'New Canvas',
+      untitled: 'Untitled Canvas',
+      openAction: 'Open canvas',
+      renameAction: 'Rename',
+      deleteAction: 'Remove from list',
+      detailTitle: 'Creative Canvas',
+      detailDescription: 'Stay inside one project context while arranging and evolving your work.',
+      autosaveIdle: 'Synced',
+      autosaveSaving: 'Saving…',
+      autosaveSaved: 'Saved just now',
+      autosaveError: 'Save failed',
+      panelTitle: 'Multi-model generation',
+      panelDescription: 'Compare several model results from the same prompt in one pass.',
+      modelLabel: 'Models',
+      jobsLabel: 'Generation results',
+      clearFinished: 'Clear finished',
+      statusGenerating: 'Generating',
+      statusCompleted: 'Completed',
+      statusFailed: 'Failed',
     },
     legal: {
       termsLink: 'Terms',
@@ -576,7 +748,13 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
     },
     settings: {
       pageTitle: 'Account Settings',
-      pageDescription: 'Manage your profile, language preference, and security settings.',
+      pageDescription:
+        'Manage your profile, language preference, security settings, and BYOK access.',
+      tabs: {
+        account: 'Account',
+        security: 'Security',
+        apiKeys: 'API Keys',
+      },
       profileSection: 'Profile',
       nameLabel: 'Display Name',
       namePlaceholder: 'Enter display name',
@@ -599,6 +777,50 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       currentPasswordWrong: 'Current password is incorrect.',
       localeSuccess: 'Language preference saved',
       localeFailed: 'Language switch failed',
+      apiKeys: {
+        loadingLabel: 'Loading API keys...',
+        retryLabel: 'Retry',
+        loadFailed: 'Failed to load API keys',
+        saveSuccess: 'API key saved',
+        saveFailed: 'Failed to save API key',
+        deleteSuccess: 'API key removed',
+        deleteFailed: 'Failed to remove API key',
+        testUnavailable: 'API key verification will arrive in a later phase.',
+        summaryTitle: 'Bring Your Own API Keys',
+        summaryDescription:
+          'Connect your own model credentials so the workbench can use your providers directly.',
+        betaLabel: 'Beta',
+        fairUseLabel: 'Fair use',
+        fairUseDescription:
+          'BYOK calls skip platform quota accounting, but they still follow fair-use protections and server-side security checks.',
+        currentKeyLabel: 'Current key',
+        configuredLabel: 'Configured',
+        unconfiguredLabel: 'Not configured',
+        emptyKeyLabel: 'No key saved yet',
+        inputLabel: 'New API key',
+        inputPlaceholder: 'Paste an API key',
+        saveLabel: 'Save',
+        savingLabel: 'Saving...',
+        deleteLabel: 'Delete',
+        deletingLabel: 'Deleting...',
+        testLabel: 'Test',
+        testingLabel: 'Testing...',
+        errorPrefix: 'Error:',
+        providers: {
+          google: {
+            title: 'Google AI Studio',
+            description: 'Use Gemini Flash image generation with your own key.',
+          },
+          bytedance: {
+            title: 'ByteDance Ark',
+            description: 'Use Seedream generation with your own Ark API token.',
+          },
+          alibaba: {
+            title: 'Alibaba DashScope',
+            description: 'Use Tongyi Wanx generation with your own DashScope key.',
+          },
+        },
+      },
     },
     upgrade: {
       pageTitle: 'Upgrade Plans',

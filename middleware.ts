@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { AUTH_PROTECTED_PREFIXES, DASHBOARD_HOME } from '@/lib/navigation'
 
-const protectedRoutes = ['/generate', '/edit', '/gallery', '/settings', '/upgrade']
+const protectedRoutes = [...AUTH_PROTECTED_PREFIXES]
 const authRoutes = ['/login', '/signup']
 
+// AUTH BOUNDARY: This middleware only checks cookie *presence* for UX redirects.
+// It does NOT verify JWT signature or expiry — that happens in each page handler
+// via auth(). Any route that needs real auth MUST call auth() server-side.
+// Do not rely on this middleware alone for access control.
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   const sessionToken =
@@ -24,7 +29,7 @@ export function middleware(req: NextRequest) {
   }
 
   if (isAuthRoute && isLoggedIn) {
-    return NextResponse.redirect(new URL('/generate', req.url))
+    return NextResponse.redirect(new URL(DASHBOARD_HOME, req.url))
   }
 
   return NextResponse.next()

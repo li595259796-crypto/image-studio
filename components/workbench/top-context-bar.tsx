@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { useLocale } from '@/components/locale-provider'
+import { getWorkbenchRouteKey } from '@/lib/navigation'
 
 /* const routeDescriptions = {
   zh: {
@@ -23,15 +24,6 @@ import { useLocale } from '@/components/locale-provider'
   },
 } as const */
 
-function getRouteKey(pathname: string) {
-  if (pathname.startsWith('/generate')) return 'generate'
-  if (pathname.startsWith('/edit')) return 'edit'
-  if (pathname.startsWith('/gallery')) return 'gallery'
-  if (pathname.startsWith('/settings')) return 'settings'
-  if (pathname.startsWith('/upgrade')) return 'upgrade'
-  return 'default'
-}
-
 interface TopContextBarProps {
   sidebarTrigger?: ReactNode
   actions?: ReactNode
@@ -40,9 +32,10 @@ interface TopContextBarProps {
 export function TopContextBar({ sidebarTrigger, actions }: TopContextBarProps) {
   const pathname = usePathname()
   const { dictionary } = useLocale()
-  const routeKey = getRouteKey(pathname)
+  const routeKey = getWorkbenchRouteKey(pathname)
 
   const titles = {
+    canvas: dictionary.canvas.detailTitle,
     generate: dictionary.scenario.pageTitle,
     edit: dictionary.nav.edit,
     gallery: dictionary.gallery.libraryTitle,
@@ -52,6 +45,7 @@ export function TopContextBar({ sidebarTrigger, actions }: TopContextBarProps) {
   } as const
 
   const descriptions = {
+    canvas: dictionary.canvas.detailDescription,
     generate: dictionary.scenario.pageDescription,
     edit: `${dictionary.scenario.uploadLabel} / ${dictionary.scenario.descriptionLabel}`,
     gallery: dictionary.gallery.libraryDescription,

@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
+import { SettingsTabsForm } from '@/components/settings/settings-tabs-form'
 import { getUserProfile } from '@/lib/db/queries'
-import { SettingsForm } from '@/components/settings-form'
+import { DASHBOARD_HOME } from '@/lib/navigation'
 
 export default async function SettingsPage() {
   const session = await auth()
@@ -13,8 +14,8 @@ export default async function SettingsPage() {
   const profile = await getUserProfile(session.user.id)
 
   if (!profile) {
-    redirect('/generate')
+    redirect(DASHBOARD_HOME)
   }
 
-  return <SettingsForm profile={profile} />
+  return <SettingsTabsForm profile={profile} />
 }
