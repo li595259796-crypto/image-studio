@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { touchCanvasLastOpenedAt, getCanvasByIdAndUser } from '@/lib/db/canvas-queries'
+import { CanvasWorkspace } from '@/components/canvas/canvas-workspace'
 
 export default async function CanvasDetailPage({
   params,
@@ -22,15 +23,5 @@ export default async function CanvasDetailPage({
 
   await touchCanvasLastOpenedAt(session.user.id, id)
 
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{canvas.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          Canvas foundation is live. The Excalidraw workspace comes next.
-        </p>
-      </div>
-      <div className="min-h-[540px] rounded-[28px] border border-dashed border-border/80 bg-muted/35" />
-    </div>
-  )
+  return <CanvasWorkspace canvas={canvas} />
 }

@@ -7,6 +7,7 @@ import {
   DEFAULT_CANVAS_NAME,
   assertCanvasStateWithinLimit,
   createEmptyCanvasState,
+  pickPersistedAppState,
   sanitizeCanvasName,
 } from './state.ts'
 
@@ -40,4 +41,26 @@ test('rejects oversized serialized canvas snapshots', () => {
   }
 
   assert.throws(() => assertCanvasStateWithinLimit(oversized), /Canvas state exceeds/)
+})
+
+test('keeps only the serializable appState fields we want to persist', () => {
+  const persisted = pickPersistedAppState({
+    viewBackgroundColor: '#ffffff',
+    gridSize: null,
+    scrollX: 120,
+    scrollY: -48,
+    zoom: { value: 1.25 },
+    zenModeEnabled: true,
+    collaborators: new Map([['demo', { username: 'skip-me' }]]),
+    openMenu: 'canvas',
+  })
+
+  assert.deepEqual(persisted, {
+    viewBackgroundColor: '#ffffff',
+    gridSize: null,
+    zenModeEnabled: true,
+    scrollX: 120,
+    scrollY: -48,
+    zoom: { value: 1.25 },
+  })
 })

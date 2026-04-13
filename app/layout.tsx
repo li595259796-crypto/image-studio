@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { LocaleProvider } from '@/components/locale-provider'
 import { BRAND_NAME, defaultLocale } from '@/lib/i18n'
 import './globals.css'
+import '@excalidraw/excalidraw/index.css'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
