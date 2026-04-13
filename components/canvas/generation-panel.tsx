@@ -24,7 +24,7 @@ import {
 } from '@/hooks/use-canvas-generation-stream'
 import { GenerationResultStrip } from './generation-result-strip'
 
-const DEFAULT_MODEL_IDS: ModelId[] = ['gemini-2.5-flash', 'seedream-5.0']
+const DEFAULT_MODEL_IDS: ModelId[] = ['gemini-2.5-flash']
 
 export function GenerationPanel({
   canvasId,
