@@ -29,10 +29,29 @@ const ASPECT_TO_TONGYI_SIZE: Record<GenerateOptions['aspectRatio'], string> = {
   '3:4': '1024*1365',
 }
 
+// Hardcoded endpoints — never accept arbitrary URLs from env vars (SSRF prevention).
+const TONGYI_ENDPOINTS = {
+  intl: 'https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+  cn: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+} as const
+
+// Safe image URL domains — provider-returned URLs are validated before fetch.
+const TONGYI_IMAGE_DOMAINS = ['.aliyuncs.com', '.alicdn.com'] as const
+
 function getTongyiEndpoint(): string {
-  const baseUrl =
-    process.env.DASHSCOPE_BASE_URL ?? 'https://dashscope-intl.aliyuncs.com'
-  return `${baseUrl}/api/v1/services/aigc/multimodal-generation/generation`
+  return process.env.DASHSCOPE_REGION === 'cn'
+    ? TONGYI_ENDPOINTS.cn
+    : TONGYI_ENDPOINTS.intl
+}
+
+function assertSafeTongyiImageUrl(url: string): void {
+  const parsed = new URL(url)
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Tongyi image URL must use HTTPS')
+  }
+  if (!TONGYI_IMAGE_DOMAINS.some((suffix) => parsed.hostname.endsWith(suffix))) {
+    throw new Error(`Tongyi image URL hostname not in allowlist: ${parsed.hostname}`)
+  }
 }
 
 function toAdapterError(
@@ -129,6 +148,9 @@ export const tongyiAdapter: ModelAdapter = {
           durationMs: Date.now() - startedAt,
         }
       }
+
+      // Validate image URL domain before fetching (provider-response SSRF prevention)
+      assertSafeTongyiImageUrl(imageUrl)
 
       const image = await fetchBytesWithTimeout(
         imageUrl,

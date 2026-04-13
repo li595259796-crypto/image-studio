@@ -116,11 +116,9 @@ async function blobUrlToFileData(
     file: {
       id: imageId as FileId,
       mimeType:
-        blob.type === 'image/jpeg' ||
-        blob.type === 'image/webp' ||
-        blob.type === 'application/octet-stream'
+        blob.type === 'image/jpeg' || blob.type === 'image/webp'
           ? blob.type
-          : 'image/png',
+          : 'image/png',  // fallback for octet-stream and unknown types
       dataURL: dataUrl as BinaryFileData['dataURL'],
       created: Date.now(),
       lastRetrieved: Date.now(),

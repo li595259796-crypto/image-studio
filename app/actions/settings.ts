@@ -3,9 +3,25 @@
 import bcrypt from 'bcryptjs'
 import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
+import { isByokProvider, SUPPORTED_BYOK_PROVIDERS, type ByokProvider } from '@/lib/byok/providers'
+import {
+  encryptApiKey,
+  getByokMasterKeyFromEnv,
+  maskApiKey,
+} from '@/lib/crypto/byok'
 import { db } from '@/lib/db'
+import {
+  deleteUserApiKeyForUser,
+  listUserApiKeysForUser,
+  upsertUserApiKeyForUser,
+} from '@/lib/db/user-api-keys-queries'
 import { users } from '@/lib/db/schema'
 import { getUserById, updateUserLocale } from '@/lib/db/queries'
+import {
+  createUserApiKeyViews,
+  isValidApiKeyInput,
+  type UserApiKeyViews,
+} from '@/lib/settings/api-keys'
 import type { ActionResult } from '@/lib/types'
 import { uploadAvatar } from '@/lib/upload-avatar'
 
@@ -140,4 +156,140 @@ export async function changePasswordAction(
       error instanceof Error ? error.message : 'Failed to change password'
     return { success: false, error: message }
   }
+}
+
+export async function listUserApiKeysAction(): Promise<
+  ActionResult<{ providers: UserApiKeyViews }>
+> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Authentication required',
+        errorCode: 'auth_required',
+      }
+    }
+
+    const masterKeyHex = getByokMasterKeyFromEnv()
+    const records = await listUserApiKeysForUser(session.user.id)
+
+    return {
+      success: true,
+      data: {
+        providers: createUserApiKeyViews({
+          userId: session.user.id,
+          encryptedRecords: records,
+          masterKeyHex,
+        }),
+      },
+    }
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to load API keys',
+    }
+  }
+}
+
+export async function saveUserApiKeyAction(input: {
+  provider: string
+  apiKey: string
+}): Promise<ActionResult<{ provider: ByokProvider; maskedKey: string }>> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Authentication required',
+        errorCode: 'auth_required',
+      }
+    }
+
+    if (!isByokProvider(input.provider)) {
+      return {
+        success: false,
+        error: 'Unsupported provider',
+        errorCode: 'validation_error',
+      }
+    }
+
+    const apiKey = input.apiKey.trim()
+    if (!isValidApiKeyInput(apiKey)) {
+      return {
+        success: false,
+        error: 'API key must be between 8 and 4096 characters',
+        errorCode: 'validation_error',
+      }
+    }
+
+    const masterKeyHex = getByokMasterKeyFromEnv()
+    const encrypted = encryptApiKey({
+      plaintext: apiKey,
+      userId: session.user.id,
+      masterKeyHex,
+    })
+
+    await upsertUserApiKeyForUser({
+      userId: session.user.id,
+      provider: input.provider,
+      encryptedKey: encrypted.encryptedKey,
+      keyVersion: encrypted.keyVersion,
+    })
+
+    return {
+      success: true,
+      data: {
+        provider: input.provider,
+        maskedKey: maskApiKey(apiKey),
+      },
+    }
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to save API key',
+    }
+  }
+}
+
+export async function deleteUserApiKeyAction(
+  provider: string
+): Promise<ActionResult<{ provider: ByokProvider }>> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Authentication required',
+        errorCode: 'auth_required',
+      }
+    }
+
+    if (!isByokProvider(provider)) {
+      return {
+        success: false,
+        error: 'Unsupported provider',
+        errorCode: 'validation_error',
+      }
+    }
+
+    await deleteUserApiKeyForUser(session.user.id, provider)
+
+    return {
+      success: true,
+      data: { provider },
+    }
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to delete API key',
+    }
+  }
+}
+
+// Server Actions must be async — Next.js App Router requirement for 'use server' files
+export async function listSupportedByokProviders(): Promise<readonly ByokProvider[]> {
+  return SUPPORTED_BYOK_PROVIDERS
 }

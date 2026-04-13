@@ -11,9 +11,13 @@ export interface ParsedGenerateRequest {
 export function parseGenerateRequest(
   raw: Record<string, unknown>
 ): ParsedGenerateRequest {
+  const MAX_PROMPT_LENGTH = 2000
   const prompt = typeof raw.prompt === 'string' ? raw.prompt.trim() : ''
   if (!prompt) {
     throw new Error('Prompt is required')
+  }
+  if (prompt.length > MAX_PROMPT_LENGTH) {
+    throw new Error(`Prompt must be ${MAX_PROMPT_LENGTH} characters or fewer`)
   }
 
   const canvasId = typeof raw.canvasId === 'string' ? raw.canvasId : ''

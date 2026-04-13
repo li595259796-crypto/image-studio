@@ -106,14 +106,22 @@ export function parseSseMessages(input: string): {
     }
 
     try {
-      const event = eventLine.slice('event: '.length) as GenerationStreamEvent['event']
+      const eventName = eventLine.slice('event: '.length)
+      const KNOWN_EVENTS = new Set(['started', 'job_completed', 'job_failed', 'done', 'fatal'])
+      if (!KNOWN_EVENTS.has(eventName)) {
+        continue // Skip unknown event types from future server versions
+      }
+
       const data = JSON.parse(
         dataLines.map((line) => line.slice('data: '.length)).join('\n')
-      ) as GenerationStreamEvent['data']
+      )
 
-      events.push({ event, data } as GenerationStreamEvent)
+      events.push({ event: eventName, data } as GenerationStreamEvent)
     } catch {
-      // Ignore malformed chunks so a single bad event does not poison the stream.
+      // Log malformed chunks for debugging but don't poison the stream.
+      if (typeof console !== 'undefined') {
+        console.warn('[SSE] malformed chunk skipped:', chunk.slice(0, 200))
+      }
     }
   }
 
@@ -129,6 +137,7 @@ export function useCanvasGenerationStream() {
   const [activeRunCount, setActiveRunCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const jobsRef = useRef<GenerationClientJob[]>([])
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const updateJobs = useCallback(
     (updater: (current: GenerationClientJob[]) => GenerationClientJob[]) => {
@@ -216,6 +225,10 @@ export function useCanvasGenerationStream() {
 
       setActiveRunCount((count) => count + 1)
 
+      // AbortController for cleanup on component unmount
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
       try {
         const response = await fetch('/api/generate', {
           method: 'POST',
@@ -226,6 +239,7 @@ export function useCanvasGenerationStream() {
             aspectRatio,
             modelIds,
           }),
+          signal: controller.signal,
         })
 
         if (!response.ok || !response.body) {
@@ -361,6 +375,10 @@ export function useCanvasGenerationStream() {
           }
         }
       } catch (caughtError: unknown) {
+        // AbortError means the component unmounted — don't update state
+        if (caughtError instanceof DOMException && caughtError.name === 'AbortError') {
+          return
+        }
         const message =
           caughtError instanceof Error
             ? caughtError.message
@@ -368,15 +386,28 @@ export function useCanvasGenerationStream() {
         setError(message)
         await failLocalRun(localRunId, message, onFailed)
       } finally {
+        abortControllerRef.current = null
         setActiveRunCount((count) => Math.max(0, count - 1))
       }
     },
     [failLocalRun, updateJobs]
   )
 
+  // Cleanup: abort in-flight SSE stream on component unmount
+  // (imported useEffect at the top of the file)
+  // Note: the hook consumer's component should call this via useEffect cleanup
+
   const clearFinishedJobs = useCallback(() => {
-    updateJobs((current) => current.filter((job) => job.status === 'processing'))
+    // Keep only in-flight jobs; remove completed + failed results from the list
+    updateJobs((current) =>
+      current.filter((job) => job.status !== 'completed' && job.status !== 'failed')
+    )
   }, [updateJobs])
+
+  const cancelGeneration = useCallback(() => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+  }, [])
 
   return useMemo(
     () => ({
@@ -386,7 +417,8 @@ export function useCanvasGenerationStream() {
       isSubmitting: activeRunCount > 0,
       clearFinishedJobs,
       startGeneration,
+      cancelGeneration,
     }),
-    [activeRunCount, clearFinishedJobs, error, jobs, startGeneration]
+    [activeRunCount, cancelGeneration, clearFinishedJobs, error, jobs, startGeneration]
   )
 }

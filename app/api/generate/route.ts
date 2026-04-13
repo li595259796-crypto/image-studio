@@ -7,7 +7,8 @@ import {
   listRecentGenerationCountForUser,
   markGenerationJobCompleted,
   markGenerationJobFailed,
-  recordGenerationUsage,
+  preDeductQuota,
+  rollbackQuotaDeduction,
 } from '@/lib/db/generation-queries'
 import { getQuotaInfo } from '@/lib/db/queries'
 import { parseGenerateRequest } from '@/lib/generation/request'
@@ -28,6 +29,19 @@ type FailedJobEvent = {
 
 function jsonError(message: string, status: number): Response {
   return Response.json({ error: message }, { status })
+}
+
+// Only expose safe, static error descriptions to the client.
+// Raw provider messages may contain internal URLs or API details.
+function getClientSafeErrorMessage(errorCode: string): string {
+  switch (errorCode) {
+    case 'timeout': return 'Generation timed out'
+    case 'rate_limited': return 'Provider rate limit exceeded'
+    case 'misconfigured': return 'Model is not configured'
+    case 'invalid_response': return 'Provider returned an invalid response'
+    case 'provider_error': return 'Provider error'
+    default: return 'Generation failed'
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -68,6 +82,22 @@ export async function POST(request: Request): Promise<Response> {
 
   const groupId = randomUUID()
   const adapters = getModelAdaptersForIds(parsed.modelIds)
+
+  // Atomic quota pre-deduction: insert usageLogs rows BEFORE generation starts.
+  // This prevents TOCTOU races where concurrent requests both pass the quota check.
+  const preDeducted = await preDeductQuota({
+    userId,
+    action: 'generate',
+    models: adapters.map((a) => ({
+      modelId: a.definition.id,
+      provider: a.definition.provider,
+    })),
+    quotaSource: 'platform',
+    groupId,
+    canvasId: parsed.canvasId,
+  })
+  const preDeductedIds = preDeducted.map((r) => r.id)
+
   const jobs = await createGenerationJobs({
     groupId,
     userId,
@@ -103,6 +133,21 @@ export async function POST(request: Request): Promise<Response> {
         await Promise.allSettled(
           jobs.map(async (job, index) => {
             const adapter = adapters[index]
+            if (!adapter) {
+              await markGenerationJobFailed(job.id, userId, {
+                errorCode: 'provider_error',
+                error: 'Adapter not found for job',
+                durationMs: 0,
+              })
+              send('job_failed', {
+                jobId: job.id,
+                modelId: job.modelId,
+                errorCode: 'provider_error',
+                message: 'Model adapter unavailable',
+                durationMs: 0,
+              })
+              return
+            }
             const result = await runModelGeneration({
               adapter,
               options: {
@@ -112,7 +157,7 @@ export async function POST(request: Request): Promise<Response> {
             })
 
             if (!result.ok) {
-              await markGenerationJobFailed(job.id, {
+              await markGenerationJobFailed(job.id, userId, {
                 errorCode: result.errorCode,
                 error: result.message,
                 durationMs: result.durationMs,
@@ -122,7 +167,8 @@ export async function POST(request: Request): Promise<Response> {
                 jobId: job.id,
                 modelId: adapter.definition.id,
                 errorCode: result.errorCode,
-                message: result.message,
+                // Sanitize: only send error code to client, not raw provider message
+                message: getClientSafeErrorMessage(result.errorCode),
                 durationMs: result.durationMs,
               }
               send('job_failed', payload)
@@ -149,19 +195,11 @@ export async function POST(request: Request): Promise<Response> {
 
             await markGenerationJobCompleted(
               job.id,
+              userId,
               image.id,
               result.durationMs
             )
-            await recordGenerationUsage({
-              userId,
-              action: 'generate',
-              model: adapter.definition.id,
-              provider: adapter.definition.provider,
-              quotaSource: 'platform',
-              groupId,
-              durationMs: result.durationMs,
-              canvasId: parsed.canvasId,
-            })
+            // Quota already pre-deducted via preDeductQuota before stream opened
 
             send('job_completed', {
               jobId: job.id,
@@ -177,11 +215,12 @@ export async function POST(request: Request): Promise<Response> {
         send('done', { groupId })
         controller.close()
       } catch (error: unknown) {
+        // Log full error server-side, send only safe message to client
+        console.error('[generate] fatal pipeline error:', error)
+        // Rollback pre-deducted quota on total pipeline failure
+        await rollbackQuotaDeduction(preDeductedIds).catch(() => {})
         send('fatal', {
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Generation pipeline failed unexpectedly',
+          message: 'Generation pipeline failed unexpectedly',
         })
         controller.close()
       }
@@ -193,6 +232,8 @@ export async function POST(request: Request): Promise<Response> {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
+      // Required for nginx-fronted deployments (Tencent Cloud migration)
+      'X-Accel-Buffering': 'no',
     },
   })
 }
