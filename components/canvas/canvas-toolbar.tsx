@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { createCanvasAction, renameCanvasAction } from '@/app/actions/canvas'
 import { useLocale } from '@/components/locale-provider'
 import { Button } from '@/components/ui/button'
@@ -35,17 +36,25 @@ export function CanvasToolbar({
 
   function handleRename() {
     startTransition(async () => {
-      const result = await renameCanvasAction(canvasId, name)
-      setName(result.name)
-      router.refresh()
+      try {
+        const result = await renameCanvasAction(canvasId, name)
+        setName(result.name)
+        router.refresh()
+      } catch {
+        toast.error('Failed to rename canvas')
+      }
     })
   }
 
   function handleCreate() {
     startTransition(async () => {
-      const result = await createCanvasAction()
-      router.push(`/canvas/${result.id}`)
-      router.refresh()
+      try {
+        const result = await createCanvasAction()
+        router.push(`/canvas/${result.id}`)
+        router.refresh()
+      } catch {
+        toast.error('Failed to create canvas')
+      }
     })
   }
 

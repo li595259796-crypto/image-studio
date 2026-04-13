@@ -11,11 +11,11 @@ import {
 import {
   assertCanvasStateWithinLimit,
   createEmptyCanvasState,
+  parseCanvasState,
   sanitizeCanvasName,
-  type PersistedCanvasState,
 } from '@/lib/canvas/state'
 
-async function requireUserId() {
+async function requireUserId(): Promise<string> {
   const session = await auth()
 
   if (!session?.user?.id) {
@@ -53,21 +53,28 @@ export async function renameCanvasAction(canvasId: string, name: string) {
 
 export async function saveCanvasStateAction(
   canvasId: string,
-  state: PersistedCanvasState
+  state: unknown
 ) {
   const userId = await requireUserId()
-  assertCanvasStateWithinLimit(state)
 
-  const canvas = await saveCanvasStateForUser(userId, canvasId, state)
+  // Structural validation — rejects malformed JSON before it hits the DB
+  const validated = parseCanvasState(state)
+
+  // Size check — rejects payloads exceeding 5MB
+  assertCanvasStateWithinLimit(validated)
+
+  const canvas = await saveCanvasStateForUser(userId, canvasId, validated)
 
   if (!canvas) {
     throw new Error('Canvas not found')
   }
 
-  revalidatePath('/canvas')
+  // Only revalidate the detail page, NOT the list page.
+  // Autosave fires every ~800ms during active editing — revalidating
+  // /canvas on each save wastes RSC re-renders for unchanged list data.
   revalidatePath(`/canvas/${canvasId}`)
 
-  return { id: canvas.id, updatedAt: canvas.updatedAt }
+  return { id: canvas.id }
 }
 
 export async function deleteCanvasAction(canvasId: string) {

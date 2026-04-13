@@ -9,7 +9,7 @@ import {
   jsonb,
   index,
 } from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import type { AdapterAccountType } from 'next-auth/adapters'
 import type { PersistedCanvasState } from '@/lib/canvas/state'
 
@@ -94,7 +94,12 @@ export const canvases = pgTable(
   },
   (table) => [
     index('canvases_user_updated_idx').on(table.userId, table.updatedAt),
-    index('canvases_user_last_opened_idx').on(table.userId, table.lastOpenedAt),
+    // DESC on lastOpenedAt to match ORDER BY ... DESC in listCanvasesForUser
+    index('canvases_user_last_opened_idx').using(
+      'btree',
+      table.userId,
+      sql`"lastOpenedAt" DESC`
+    ),
   ]
 )
 
@@ -123,7 +128,10 @@ export const images = pgTable(
   },
   (table) => [
     index('images_user_created_idx').on(table.userId, table.createdAt),
-    index('images_canvas_created_idx').on(table.canvasId, table.createdAt),
+    // Partial index: skip NULL canvasId rows (most Library images have no canvas)
+    index('images_canvas_idx')
+      .on(table.canvasId)
+      .where(sql`"canvasId" IS NOT NULL`),
   ]
 )
 

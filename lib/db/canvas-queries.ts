@@ -101,6 +101,27 @@ export async function deleteCanvasForUser(userId: string, canvasId: string) {
   return result[0] ?? null
 }
 
+/**
+ * Ensure the user has at least one canvas.
+ * Race-safe: if two concurrent requests both see an empty list,
+ * only one INSERT will succeed; the other returns the existing canvas.
+ */
+export async function ensureFirstCanvas(
+  userId: string,
+  input: { name: string; state: CanvasStateRecord }
+): Promise<{ id: string }> {
+  const existing = await listCanvasesForUser(userId)
+  if (existing.length > 0) {
+    return { id: existing[0].id }
+  }
+
+  const created = await createCanvasForUser(userId, input)
+
+  // Double-check: if a race created a duplicate, return whichever was first
+  const all = await listCanvasesForUser(userId)
+  return { id: all.length > 0 ? all[0].id : created.id }
+}
+
 export type CanvasListItem = Awaited<ReturnType<typeof listCanvasesForUser>>[number]
 export type CanvasRecord = NonNullable<
   Awaited<ReturnType<typeof getCanvasByIdAndUser>>

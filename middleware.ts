@@ -5,6 +5,10 @@ import { AUTH_PROTECTED_PREFIXES, DASHBOARD_HOME } from '@/lib/navigation'
 const protectedRoutes = [...AUTH_PROTECTED_PREFIXES]
 const authRoutes = ['/login', '/signup']
 
+// AUTH BOUNDARY: This middleware only checks cookie *presence* for UX redirects.
+// It does NOT verify JWT signature or expiry — that happens in each page handler
+// via auth(). Any route that needs real auth MUST call auth() server-side.
+// Do not rely on this middleware alone for access control.
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   const sessionToken =

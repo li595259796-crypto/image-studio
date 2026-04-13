@@ -61,14 +61,59 @@ export function createEmptyCanvasState(): PersistedCanvasState {
   }
 }
 
-export function sanitizeCanvasName(value: string | null | undefined) {
+export function sanitizeCanvasName(value: string | null | undefined): string {
   const trimmed = value?.trim()
   return trimmed ? trimmed.slice(0, 120) : DEFAULT_CANVAS_NAME
 }
 
-export function assertCanvasStateWithinLimit(value: unknown) {
+/**
+ * Validate that `raw` is a structurally valid PersistedCanvasState.
+ * Used on both write (server action) and read (DB → component) paths.
+ * Does NOT use Zod to avoid adding a direct dependency for a single use site.
+ */
+export function parseCanvasState(raw: unknown): PersistedCanvasState {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Canvas state must be a non-null object')
+  }
+
+  const obj = raw as Record<string, unknown>
+
+  if (!Array.isArray(obj.elements)) {
+    throw new Error('Canvas state.elements must be an array')
+  }
+
+  if (obj.elements.length > 10_000) {
+    throw new Error('Canvas state.elements exceeds 10,000 entries')
+  }
+
+  if (!obj.appState || typeof obj.appState !== 'object') {
+    throw new Error('Canvas state.appState must be an object')
+  }
+
+  if (obj.files !== null && obj.files !== undefined && typeof obj.files !== 'object') {
+    throw new Error('Canvas state.files must be an object or null')
+  }
+
+  const files = (obj.files ?? {}) as Record<string, unknown>
+  const fileCount = Object.keys(files).length
+  if (fileCount > CANVAS_ASSET_LIMIT) {
+    throw new Error(`Canvas files exceed limit of ${CANVAS_ASSET_LIMIT}`)
+  }
+
+  return {
+    elements: obj.elements as readonly ExcalidrawElement[],
+    appState: pickPersistedAppState(obj.appState as Record<string, unknown>),
+    files: files as BinaryFiles,
+  }
+}
+
+/**
+ * Check that serialized canvas state is within the byte size limit.
+ * Uses TextEncoder for browser compatibility (no Node.js Buffer dependency).
+ */
+export function assertCanvasStateWithinLimit(value: unknown): string {
   const serialized = JSON.stringify(value)
-  const size = Buffer.byteLength(serialized, 'utf8')
+  const size = new TextEncoder().encode(serialized).length
 
   if (size > CANVAS_STATE_MAX_BYTES) {
     throw new Error(`Canvas state exceeds ${CANVAS_STATE_MAX_BYTES} bytes`)
@@ -77,6 +122,9 @@ export function assertCanvasStateWithinLimit(value: unknown) {
   return serialized
 }
 
+// Adapter: PersistedCanvasState → Excalidraw initialData.
+// Excalidraw merges missing appState fields with its own defaults,
+// so passing our narrow PersistedCanvasAppState is safe.
 export function toExcalidrawInitialData(
   value: PersistedCanvasState
 ): ExcalidrawInitialDataState {
