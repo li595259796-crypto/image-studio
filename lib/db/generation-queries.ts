@@ -8,10 +8,10 @@ export async function createGenerationJobs(input: {
   canvasId: string
   prompt: string
   aspectRatio: string
-  quotaSource: 'platform' | 'byok'
   models: Array<{
     modelId: string
     provider: 'google' | 'bytedance' | 'alibaba' | '147ai'
+    quotaSource: 'platform' | 'byok'
   }>
 }) {
   return db
@@ -23,7 +23,7 @@ export async function createGenerationJobs(input: {
         canvasId: input.canvasId,
         prompt: input.prompt,
         aspectRatio: input.aspectRatio,
-        quotaSource: input.quotaSource,
+        quotaSource: model.quotaSource,
         modelId: model.modelId,
         provider: model.provider,
       }))
@@ -130,8 +130,11 @@ export async function insertGeneratedImageResult(input: {
 export async function preDeductQuota(input: {
   userId: string
   action: 'generate'
-  models: Array<{ modelId: string; provider: string }>
-  quotaSource: 'platform' | 'byok'
+  models: Array<{
+    modelId: string
+    provider: string
+    quotaSource: 'platform' | 'byok'
+  }>
   groupId: string
   canvasId: string
 }) {
@@ -140,7 +143,7 @@ export async function preDeductQuota(input: {
     action: input.action as 'generate' | 'edit',
     model: m.modelId,
     provider: m.provider,
-    quotaSource: input.quotaSource,
+    quotaSource: m.quotaSource,
     groupId: input.groupId,
     canvasId: input.canvasId,
     durationMs: 0, // placeholder, updated on completion

@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { auth } from '@/lib/auth'
+import type { ByokProvider } from '@/lib/byok/providers'
+import {
+  countPlatformRunContexts,
+  decryptUserApiKeyRecords,
+  resolveModelRunContexts,
+} from '@/lib/byok/runtime'
 import { getCanvasByIdAndUser } from '@/lib/db/canvas-queries'
 import {
   createGenerationJobs,
@@ -10,14 +16,17 @@ import {
   preDeductQuota,
   rollbackQuotaDeduction,
 } from '@/lib/db/generation-queries'
-import { getQuotaInfo } from '@/lib/db/queries'
+import { getDailyUsageCountForQuotaSource, getQuotaInfo } from '@/lib/db/queries'
+import { listUserApiKeysForUser } from '@/lib/db/user-api-keys-queries'
 import { parseGenerateRequest } from '@/lib/generation/request'
 import { serializeSseEvent } from '@/lib/generation/sse'
+import { getByokMasterKeyFromEnv } from '@/lib/crypto/byok'
 import { getModelAdaptersForIds, runModelGeneration } from '@/lib/models/router'
 import { uploadImage } from '@/lib/storage'
 
 export const maxDuration = 300
 export const runtime = 'nodejs'
+const BYOK_DAILY_FAIR_USE_LIMIT = 200
 
 type FailedJobEvent = {
   jobId: string
@@ -72,44 +81,75 @@ export async function POST(request: Request): Promise<Response> {
     return jsonError('Rate limit exceeded', 429)
   }
 
-  const quota = await getQuotaInfo(userId)
-  if (
-    quota.dailyUsed + parsed.modelIds.length > quota.dailyLimit ||
-    quota.monthlyUsed + parsed.modelIds.length > quota.monthlyLimit
-  ) {
-    return jsonError('Quota exceeded', 403)
-  }
-
   const groupId = randomUUID()
   const adapters = getModelAdaptersForIds(parsed.modelIds)
+  const storedApiKeys = await listUserApiKeysForUser(userId)
+  let providerKeys: Partial<Record<ByokProvider, string>> = {}
+  if (storedApiKeys.length > 0) {
+    try {
+      providerKeys = decryptUserApiKeyRecords({
+        records: storedApiKeys,
+        userId,
+        masterKeyHex: getByokMasterKeyFromEnv(),
+      })
+    } catch (error: unknown) {
+      console.error('[generate] failed to resolve BYOK keys', error)
+      return jsonError('BYOK key decryption unavailable', 500)
+    }
+  }
+  const runContexts = resolveModelRunContexts(adapters, providerKeys)
+  const platformModelCount = countPlatformRunContexts(runContexts)
+  const byokModelCount = runContexts.length - platformModelCount
 
-  // Atomic quota pre-deduction: insert usageLogs rows BEFORE generation starts.
-  // This prevents TOCTOU races where concurrent requests both pass the quota check.
+  if (platformModelCount > 0) {
+    const quota = await getQuotaInfo(userId)
+    if (
+      quota.dailyUsed + platformModelCount > quota.dailyLimit ||
+      quota.monthlyUsed + platformModelCount > quota.monthlyLimit
+    ) {
+      return jsonError('Quota exceeded', 403)
+    }
+  }
+
+  if (byokModelCount > 0) {
+    const byokUsedToday = await getDailyUsageCountForQuotaSource(userId, 'byok')
+    if (byokUsedToday + byokModelCount > BYOK_DAILY_FAIR_USE_LIMIT) {
+      return jsonError('BYOK fair use exceeded', 403)
+    }
+  }
+
   const preDeducted = await preDeductQuota({
     userId,
     action: 'generate',
-    models: adapters.map((a) => ({
-      modelId: a.definition.id,
-      provider: a.definition.provider,
+    models: runContexts.map((context) => ({
+      modelId: context.adapter.definition.id,
+      provider: context.adapter.definition.provider,
+      quotaSource: context.quotaSource,
     })),
-    quotaSource: 'platform',
     groupId,
     canvasId: parsed.canvasId,
   })
-  const preDeductedIds = preDeducted.map((r) => r.id)
+  const preDeductedIds = preDeducted.map((row) => row.id)
 
-  const jobs = await createGenerationJobs({
-    groupId,
-    userId,
-    canvasId: parsed.canvasId,
-    prompt: parsed.prompt,
-    aspectRatio: parsed.aspectRatio,
-    quotaSource: 'platform',
-    models: adapters.map((adapter) => ({
-      modelId: adapter.definition.id,
-      provider: adapter.definition.provider,
-    })),
-  })
+  let jobs: Awaited<ReturnType<typeof createGenerationJobs>>
+  try {
+    jobs = await createGenerationJobs({
+      groupId,
+      userId,
+      canvasId: parsed.canvasId,
+      prompt: parsed.prompt,
+      aspectRatio: parsed.aspectRatio,
+      models: runContexts.map((context) => ({
+        modelId: context.adapter.definition.id,
+        provider: context.adapter.definition.provider,
+        quotaSource: context.quotaSource,
+      })),
+    })
+  } catch (error: unknown) {
+    await rollbackQuotaDeduction(preDeductedIds).catch(() => {})
+    console.error('[generate] failed to initialize generation jobs', error)
+    return jsonError('Failed to initialize generation jobs', 500)
+  }
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
@@ -132,83 +172,104 @@ export async function POST(request: Request): Promise<Response> {
       try {
         await Promise.allSettled(
           jobs.map(async (job, index) => {
-            const adapter = adapters[index]
-            if (!adapter) {
+            const jobStartedAt = Date.now()
+            const runContext = runContexts[index]
+            const adapter = runContext?.adapter
+            try {
+              if (!adapter || !runContext) {
+                await markGenerationJobFailed(job.id, userId, {
+                  errorCode: 'provider_error',
+                  error: 'Adapter not found for job',
+                  durationMs: 0,
+                })
+                send('job_failed', {
+                  jobId: job.id,
+                  modelId: job.modelId,
+                  errorCode: 'provider_error',
+                  message: 'Model adapter unavailable',
+                  durationMs: 0,
+                })
+                return
+              }
+              const result = await runModelGeneration({
+                adapter,
+                options: {
+                  prompt: parsed.prompt,
+                  aspectRatio: parsed.aspectRatio,
+                  apiKey: runContext.apiKey,
+                },
+              })
+
+              if (!result.ok) {
+                await markGenerationJobFailed(job.id, userId, {
+                  errorCode: result.errorCode,
+                  error: result.message,
+                  durationMs: result.durationMs,
+                })
+
+                const payload: FailedJobEvent = {
+                  jobId: job.id,
+                  modelId: adapter.definition.id,
+                  errorCode: result.errorCode,
+                  message: getClientSafeErrorMessage(result.errorCode),
+                  durationMs: result.durationMs,
+                }
+                send('job_failed', payload)
+                return
+              }
+
+              const upload = await uploadImage(
+                userId,
+                result.data,
+                result.mimeType
+              )
+              const image = await insertGeneratedImageResult({
+                userId,
+                canvasId: parsed.canvasId,
+                groupId,
+                model: adapter.definition.id,
+                provider: adapter.definition.provider,
+                prompt: parsed.prompt,
+                aspectRatio: parsed.aspectRatio,
+                blobUrl: upload.url,
+                sizeBytes: upload.size,
+                durationMs: result.durationMs,
+              })
+
+              await markGenerationJobCompleted(
+                job.id,
+                userId,
+                image.id,
+                result.durationMs
+              )
+
+              send('job_completed', {
+                jobId: job.id,
+                modelId: adapter.definition.id,
+                provider: adapter.definition.provider,
+                imageId: image.id,
+                blobUrl: image.blobUrl,
+                durationMs: result.durationMs,
+              })
+            } catch (error: unknown) {
+              const durationMs = Date.now() - jobStartedAt
+              const message =
+                error instanceof Error ? error.message : 'Generation job failed'
+
               await markGenerationJobFailed(job.id, userId, {
                 errorCode: 'provider_error',
-                error: 'Adapter not found for job',
-                durationMs: 0,
-              })
+                error: message,
+                durationMs,
+              }).catch(() => {})
+
               send('job_failed', {
                 jobId: job.id,
                 modelId: job.modelId,
                 errorCode: 'provider_error',
-                message: 'Model adapter unavailable',
-                durationMs: 0,
-              })
-              return
+                message: getClientSafeErrorMessage('provider_error'),
+                durationMs,
+              } satisfies FailedJobEvent)
             }
-            const result = await runModelGeneration({
-              adapter,
-              options: {
-                prompt: parsed.prompt,
-                aspectRatio: parsed.aspectRatio,
-              },
-            })
-
-            if (!result.ok) {
-              await markGenerationJobFailed(job.id, userId, {
-                errorCode: result.errorCode,
-                error: result.message,
-                durationMs: result.durationMs,
-              })
-
-              const payload: FailedJobEvent = {
-                jobId: job.id,
-                modelId: adapter.definition.id,
-                errorCode: result.errorCode,
-                // Sanitize: only send error code to client, not raw provider message
-                message: getClientSafeErrorMessage(result.errorCode),
-                durationMs: result.durationMs,
-              }
-              send('job_failed', payload)
-              return
-            }
-
-            const upload = await uploadImage(
-              userId,
-              result.data,
-              result.mimeType
-            )
-            const image = await insertGeneratedImageResult({
-              userId,
-              canvasId: parsed.canvasId,
-              groupId,
-              model: adapter.definition.id,
-              provider: adapter.definition.provider,
-              prompt: parsed.prompt,
-              aspectRatio: parsed.aspectRatio,
-              blobUrl: upload.url,
-              sizeBytes: upload.size,
-              durationMs: result.durationMs,
-            })
-
-            await markGenerationJobCompleted(
-              job.id,
-              userId,
-              image.id,
-              result.durationMs
-            )
-            // Quota already pre-deducted via preDeductQuota before stream opened
-
-            send('job_completed', {
-              jobId: job.id,
-              modelId: adapter.definition.id,
-              provider: adapter.definition.provider,
-              imageId: image.id,
-              blobUrl: image.blobUrl,
-              durationMs: result.durationMs,
-            })
           })
         )
 

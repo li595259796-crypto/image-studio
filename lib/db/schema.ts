@@ -6,8 +6,10 @@ import {
   uuid,
   primaryKey,
   boolean,
+  check,
   jsonb,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { relations, sql } from 'drizzle-orm'
 import type { AdapterAccountType } from 'next-auth/adapters'
@@ -24,7 +26,7 @@ export const users = pgTable('users', {
   image: text('image'),
   password: text('password'),
   role: text('role').default('user').notNull(),
-  dailyQuota: integer('dailyQuota').default(10).notNull(),
+  dailyQuota: integer('dailyQuota').default(20).notNull(),
   monthlyQuota: integer('monthlyQuota').default(200).notNull(),
   locale: text('locale').default('zh').notNull(),
   createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
@@ -104,6 +106,47 @@ export const canvases = pgTable(
 )
 
 // ============================================================
+// userApiKeys
+// ============================================================
+export const userApiKeys = pgTable(
+  'userApiKeys',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: text('provider')
+      .$type<'google' | 'bytedance' | 'alibaba'>()
+      .notNull(),
+    encryptedKey: text('encryptedKey').notNull(),
+    keyVersion: integer('keyVersion').default(1).notNull(),
+    createdAt: timestamp('createdAt', {
+      withTimezone: true,
+      mode: 'date',
+    }).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', {
+      withTimezone: true,
+      mode: 'date',
+    }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('user_api_keys_user_idx').on(table.userId),
+    uniqueIndex('user_api_keys_user_provider_uidx').on(
+      table.userId,
+      table.provider
+    ),
+    check(
+      'user_api_keys_provider_check',
+      sql`${table.provider} IN ('google', 'bytedance', 'alibaba')`
+    ),
+    check(
+      'user_api_keys_encrypted_key_format_check',
+      sql`${table.encryptedKey} LIKE 'v1:%'`
+    ),
+  ]
+)
+
+// ============================================================
 // images
 // ============================================================
 export const images = pgTable(
@@ -174,6 +217,10 @@ export const usageLogs = pgTable(
     index('usage_logs_platform_created_idx')
       .using('btree', table.userId, sql`"createdAt" DESC`)
       .where(sql`"quotaSource" = 'platform'`),
+    check(
+      'usage_logs_quota_source_check',
+      sql`${table.quotaSource} IN ('platform', 'byok')`
+    ),
   ]
 )
 
@@ -220,6 +267,18 @@ export const generationJobs = pgTable(
     index('generation_jobs_canvas_status_idx').on(table.canvasId, table.status),
     index('generation_jobs_group_idx').on(table.groupId),
     index('generation_jobs_user_created_idx').on(table.userId, table.createdAt),
+    check(
+      'generation_jobs_provider_check',
+      sql`${table.provider} IN ('google', 'bytedance', 'alibaba', '147ai')`
+    ),
+    check(
+      'generation_jobs_quota_source_check',
+      sql`${table.quotaSource} IN ('platform', 'byok')`
+    ),
+    check(
+      'generation_jobs_status_check',
+      sql`${table.status} IN ('processing', 'completed', 'failed')`
+    ),
   ]
 )
 
@@ -262,6 +321,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
   sessions: many(sessions),
   canvases: many(canvases),
+  userApiKeys: many(userApiKeys),
   images: many(images),
   usageLogs: many(usageLogs),
   generationJobs: many(generationJobs),
@@ -288,6 +348,13 @@ export const canvasesRelations = relations(canvases, ({ one, many }) => ({
     references: [users.id],
   }),
   images: many(images),
+}))
+
+export const userApiKeysRelations = relations(userApiKeys, ({ one }) => ({
+  user: one(users, {
+    fields: [userApiKeys.userId],
+    references: [users.id],
+  }),
 }))
 
 export const imagesRelations = relations(images, ({ one }) => ({
