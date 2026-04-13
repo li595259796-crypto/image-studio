@@ -102,6 +102,34 @@ test('locks the redesign copy contract across public, workbench, library, and ac
   }
 })
 
+test('locks the canvas copy contract in both locales', () => {
+  for (const locale of locales) {
+    const localeCopy = copy[locale]
+
+    assertNonEmptyText(localeCopy.nav.canvas, `${locale}.nav.canvas`)
+    assertNonEmptyText(localeCopy.canvas.listTitle, `${locale}.canvas.listTitle`)
+    assertNonEmptyText(
+      localeCopy.canvas.listDescription,
+      `${locale}.canvas.listDescription`
+    )
+    assertNonEmptyText(localeCopy.canvas.emptyTitle, `${locale}.canvas.emptyTitle`)
+    assertNonEmptyText(
+      localeCopy.canvas.emptyDescription,
+      `${locale}.canvas.emptyDescription`
+    )
+    assertNonEmptyText(localeCopy.canvas.newCanvas, `${locale}.canvas.newCanvas`)
+    assertNonEmptyText(localeCopy.canvas.renameAction, `${locale}.canvas.renameAction`)
+    assertNonEmptyText(localeCopy.canvas.deleteAction, `${locale}.canvas.deleteAction`)
+    assertNonEmptyText(localeCopy.canvas.autosaveIdle, `${locale}.canvas.autosaveIdle`)
+    assertNonEmptyText(
+      localeCopy.canvas.autosaveSaving,
+      `${locale}.canvas.autosaveSaving`
+    )
+    assertNonEmptyText(localeCopy.canvas.autosaveSaved, `${locale}.canvas.autosaveSaved`)
+    assertNonEmptyText(localeCopy.canvas.autosaveError, `${locale}.canvas.autosaveError`)
+  }
+})
+
 test('keeps shared locale surfaces free of blank strings', () => {
   for (const locale of locales) {
     const localeCopy = copy[locale]

@@ -26,6 +26,7 @@ interface LocaleCopy {
     workbenchDescription: string
   }
   nav: {
+    canvas: string
     generate: string
     edit: string
     gallery: string
@@ -36,6 +37,23 @@ interface LocaleCopy {
     localeEn: string
     settings: string
     upgrade: string
+  }
+  canvas: {
+    listTitle: string
+    listDescription: string
+    emptyTitle: string
+    emptyDescription: string
+    newCanvas: string
+    untitled: string
+    openAction: string
+    renameAction: string
+    deleteAction: string
+    detailTitle: string
+    detailDescription: string
+    autosaveIdle: string
+    autosaveSaving: string
+    autosaveSaved: string
+    autosaveError: string
   }
   legal: {
     termsLink: string
@@ -232,6 +250,7 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       workbenchDescription: '在工作台里快速生成、调整和继续编辑图像。',
     },
     nav: {
+      canvas: '画布',
       generate: '创作',
       edit: '编辑',
       gallery: '画廊',
@@ -242,6 +261,23 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       localeEn: 'EN',
       settings: '账户设置',
       upgrade: '升级方案',
+    },
+    canvas: {
+      listTitle: '我的画布',
+      listDescription: '围绕一个创作项目持续生成、整理和比较图像。',
+      emptyTitle: '还没有画布',
+      emptyDescription: '创建第一块画布，开始你的多模型创作流程。',
+      newCanvas: '新建画布',
+      untitled: '未命名画布',
+      openAction: '打开画布',
+      renameAction: '重命名',
+      deleteAction: '从列表移除',
+      detailTitle: '创作画布',
+      detailDescription: '在同一个项目上下文里继续整理和推进你的创作。',
+      autosaveIdle: '已同步',
+      autosaveSaving: '保存中…',
+      autosaveSaved: '刚刚保存',
+      autosaveError: '保存失败',
     },
     legal: {
       termsLink: '服务条款',
@@ -443,6 +479,7 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       workbenchDescription: 'Create, refine, and continue editing images from a single workbench.',
     },
     nav: {
+      canvas: 'Canvas',
       generate: 'Generate',
       edit: 'Edit',
       gallery: 'Gallery',
@@ -453,6 +490,23 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       localeEn: 'EN',
       settings: 'Settings',
       upgrade: 'Upgrade',
+    },
+    canvas: {
+      listTitle: 'My Canvases',
+      listDescription: 'Keep each creative project in one shared visual workspace.',
+      emptyTitle: 'No canvases yet',
+      emptyDescription: 'Create your first canvas to start a multi-model creative flow.',
+      newCanvas: 'New Canvas',
+      untitled: 'Untitled Canvas',
+      openAction: 'Open canvas',
+      renameAction: 'Rename',
+      deleteAction: 'Remove from list',
+      detailTitle: 'Creative Canvas',
+      detailDescription: 'Stay inside one project context while arranging and evolving your work.',
+      autosaveIdle: 'Synced',
+      autosaveSaving: 'Saving…',
+      autosaveSaved: 'Saved just now',
+      autosaveError: 'Save failed',
     },
     legal: {
       termsLink: 'Terms',

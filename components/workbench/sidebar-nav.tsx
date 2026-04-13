@@ -7,6 +7,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   ArrowUpCircle,
   Images,
+  LayoutGrid,
   LogOut,
   Settings,
   Sparkles,
@@ -21,7 +22,7 @@ import { BRAND_NAME } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 export interface WorkbenchNavItem {
-  href: '/generate' | '/edit' | '/gallery' | '/settings' | '/upgrade'
+  href: '/canvas' | '/generate' | '/edit' | '/gallery' | '/settings' | '/upgrade'
   label: string
   icon: LucideIcon
   group: 'primary' | 'secondary'
@@ -62,6 +63,7 @@ export function SidebarNav({
   const { dictionary } = useLocale()
 
   const navItems: WorkbenchNavItem[] = [
+    { href: '/canvas', label: dictionary.nav.canvas, icon: LayoutGrid, group: 'primary' },
     { href: '/generate', label: dictionary.scenario.pageTitle, icon: Wand2, group: 'primary' },
     { href: '/edit', label: dictionary.nav.edit, icon: Sparkles, group: 'primary' },
     { href: '/gallery', label: dictionary.gallery.libraryTitle, icon: Images, group: 'primary' },
@@ -85,7 +87,7 @@ export function SidebarNav({
       <div className="flex h-full min-h-0 flex-col overflow-y-auto px-4 py-4 sm:px-6 lg:px-5 lg:py-6">
         <div className="flex items-center justify-between gap-3">
           <Link
-            href="/generate"
+            href="/canvas"
             onClick={onNavigate}
             className="flex items-center gap-3 rounded-2xl px-2 py-2 text-sm font-semibold tracking-[0.02em] text-foreground transition-colors hover:text-primary"
           >

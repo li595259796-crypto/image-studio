@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { AUTH_PROTECTED_PREFIXES, DASHBOARD_HOME } from '@/lib/navigation'
 
-const protectedRoutes = ['/generate', '/edit', '/gallery', '/settings', '/upgrade']
+const protectedRoutes = [...AUTH_PROTECTED_PREFIXES]
 const authRoutes = ['/login', '/signup']
 
 export function middleware(req: NextRequest) {
@@ -24,7 +25,7 @@ export function middleware(req: NextRequest) {
   }
 
   if (isAuthRoute && isLoggedIn) {
-    return NextResponse.redirect(new URL('/generate', req.url))
+    return NextResponse.redirect(new URL(DASHBOARD_HOME, req.url))
   }
 
   return NextResponse.next()

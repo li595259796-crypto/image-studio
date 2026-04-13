@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { BRAND_NAME, copy } from '@/lib/i18n'
+import { DASHBOARD_HOME } from '@/lib/navigation'
 import { useLocale } from '@/components/locale-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,7 +45,7 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/generate')
+      router.push(DASHBOARD_HOME)
       router.refresh()
     } catch {
       setError(t.unexpectedError)
