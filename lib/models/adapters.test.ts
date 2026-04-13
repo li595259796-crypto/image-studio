@@ -109,7 +109,7 @@ test('tongyi adapter downloads the temporary image URL before returning bytes', 
             choices: [
               {
                 message: {
-                  content: [{ image: 'https://example.com/generated.png', type: 'image' }],
+                  content: [{ image: 'https://result.oss-cn-hangzhou.aliyuncs.com/generated.png', type: 'image' }],
                 },
               },
             ],
@@ -143,5 +143,5 @@ test('tongyi adapter downloads the temporary image URL before returning bytes', 
     assert.deepEqual(Array.from(result.data), [7, 8, 9])
   }
   assert.equal(calls.length, 2)
-  assert.match(calls[1], /example\.com\/generated\.png/)
+  assert.match(calls[1], /aliyuncs\.com\/generated\.png/)
 })
