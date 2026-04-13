@@ -175,3 +175,7 @@ export async function listRecoverableGenerationJobsForCanvas(
     )
     .orderBy(desc(generationJobs.createdAt))
 }
+
+export type RecoverableGenerationJob = Awaited<
+  ReturnType<typeof listRecoverableGenerationJobsForCanvas>
+>[number]

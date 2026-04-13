@@ -54,6 +54,14 @@ interface LocaleCopy {
     autosaveSaving: string
     autosaveSaved: string
     autosaveError: string
+    panelTitle: string
+    panelDescription: string
+    modelLabel: string
+    jobsLabel: string
+    clearFinished: string
+    statusGenerating: string
+    statusCompleted: string
+    statusFailed: string
   }
   legal: {
     termsLink: string
@@ -278,6 +286,14 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       autosaveSaving: '保存中…',
       autosaveSaved: '刚刚保存',
       autosaveError: '保存失败',
+      panelTitle: '多模型生成',
+      panelDescription: '用同一个 prompt 同时比较多个模型的结果。',
+      modelLabel: '模型',
+      jobsLabel: '生成结果',
+      clearFinished: '清除已完成',
+      statusGenerating: '生成中',
+      statusCompleted: '已完成',
+      statusFailed: '失败',
     },
     legal: {
       termsLink: '服务条款',
@@ -507,6 +523,14 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       autosaveSaving: 'Saving…',
       autosaveSaved: 'Saved just now',
       autosaveError: 'Save failed',
+      panelTitle: 'Multi-model generation',
+      panelDescription: 'Compare several model results from the same prompt in one pass.',
+      modelLabel: 'Models',
+      jobsLabel: 'Generation results',
+      clearFinished: 'Clear finished',
+      statusGenerating: 'Generating',
+      statusCompleted: 'Completed',
+      statusFailed: 'Failed',
     },
     legal: {
       termsLink: 'Terms',
