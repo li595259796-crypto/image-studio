@@ -152,6 +152,11 @@ interface LocaleCopy {
   settings: {
     pageTitle: string
     pageDescription: string
+    tabs: {
+      account: string
+      security: string
+      apiKeys: string
+    }
     profileSection: string
     nameLabel: string
     namePlaceholder: string
@@ -174,6 +179,48 @@ interface LocaleCopy {
     currentPasswordWrong: string
     localeSuccess: string
     localeFailed: string
+    apiKeys: {
+      loadingLabel: string
+      retryLabel: string
+      loadFailed: string
+      saveSuccess: string
+      saveFailed: string
+      deleteSuccess: string
+      deleteFailed: string
+      testUnavailable: string
+      summaryTitle: string
+      summaryDescription: string
+      betaLabel: string
+      fairUseLabel: string
+      fairUseDescription: string
+      currentKeyLabel: string
+      configuredLabel: string
+      unconfiguredLabel: string
+      emptyKeyLabel: string
+      inputLabel: string
+      inputPlaceholder: string
+      saveLabel: string
+      savingLabel: string
+      deleteLabel: string
+      deletingLabel: string
+      testLabel: string
+      testingLabel: string
+      errorPrefix: string
+      providers: {
+        google: {
+          title: string
+          description: string
+        }
+        bytedance: {
+          title: string
+          description: string
+        }
+        alibaba: {
+          title: string
+          description: string
+        }
+      }
+    }
   }
   upgrade: {
     pageTitle: string
@@ -416,6 +463,11 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       filteredEmptyDescription: '试试调整筛选条件，或清除筛选后再查看作品库。',
     },
     settings: {
+      tabs: {
+        account: 'Account',
+        security: 'Security',
+        apiKeys: 'API Keys',
+      },
       pageTitle: '账户设置',
       pageDescription: '管理个人资料、语言偏好和安全设置。',
       profileSection: '基本信息',
@@ -440,6 +492,48 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       currentPasswordWrong: '当前密码错误',
       localeSuccess: '语言偏好已保存',
       localeFailed: '语言切换失败',
+      apiKeys: {
+        loadingLabel: 'Loading API keys...',
+        retryLabel: 'Retry',
+        loadFailed: 'Failed to load API keys',
+        saveSuccess: 'API key saved',
+        saveFailed: 'Failed to save API key',
+        deleteSuccess: 'API key removed',
+        deleteFailed: 'Failed to remove API key',
+        testUnavailable: 'API key verification will arrive in a later phase.',
+        summaryTitle: 'Bring Your Own API Keys',
+        summaryDescription: 'Connect your own model credentials so the workbench can use your providers directly.',
+        betaLabel: 'Beta',
+        fairUseLabel: 'Fair use',
+        fairUseDescription: 'BYOK calls skip platform quota accounting, but they still follow fair-use protections and server-side security checks.',
+        currentKeyLabel: 'Current key',
+        configuredLabel: 'Configured',
+        unconfiguredLabel: 'Not configured',
+        emptyKeyLabel: 'No key saved yet',
+        inputLabel: 'New API key',
+        inputPlaceholder: 'Paste an API key',
+        saveLabel: 'Save',
+        savingLabel: 'Saving...',
+        deleteLabel: 'Delete',
+        deletingLabel: 'Deleting...',
+        testLabel: 'Test',
+        testingLabel: 'Testing...',
+        errorPrefix: 'Error:',
+        providers: {
+          google: {
+            title: 'Google AI Studio',
+            description: 'Use Gemini Flash image generation with your own key.',
+          },
+          bytedance: {
+            title: 'ByteDance Ark',
+            description: 'Use Seedream generation with your own Ark API token.',
+          },
+          alibaba: {
+            title: 'Alibaba DashScope',
+            description: 'Use Tongyi Wanx generation with your own DashScope key.',
+          },
+        },
+      },
     },
     upgrade: {
       pageTitle: '升级方案',
@@ -654,7 +748,13 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
     },
     settings: {
       pageTitle: 'Account Settings',
-      pageDescription: 'Manage your profile, language preference, and security settings.',
+      pageDescription:
+        'Manage your profile, language preference, security settings, and BYOK access.',
+      tabs: {
+        account: 'Account',
+        security: 'Security',
+        apiKeys: 'API Keys',
+      },
       profileSection: 'Profile',
       nameLabel: 'Display Name',
       namePlaceholder: 'Enter display name',
@@ -677,6 +777,50 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       currentPasswordWrong: 'Current password is incorrect.',
       localeSuccess: 'Language preference saved',
       localeFailed: 'Language switch failed',
+      apiKeys: {
+        loadingLabel: 'Loading API keys...',
+        retryLabel: 'Retry',
+        loadFailed: 'Failed to load API keys',
+        saveSuccess: 'API key saved',
+        saveFailed: 'Failed to save API key',
+        deleteSuccess: 'API key removed',
+        deleteFailed: 'Failed to remove API key',
+        testUnavailable: 'API key verification will arrive in a later phase.',
+        summaryTitle: 'Bring Your Own API Keys',
+        summaryDescription:
+          'Connect your own model credentials so the workbench can use your providers directly.',
+        betaLabel: 'Beta',
+        fairUseLabel: 'Fair use',
+        fairUseDescription:
+          'BYOK calls skip platform quota accounting, but they still follow fair-use protections and server-side security checks.',
+        currentKeyLabel: 'Current key',
+        configuredLabel: 'Configured',
+        unconfiguredLabel: 'Not configured',
+        emptyKeyLabel: 'No key saved yet',
+        inputLabel: 'New API key',
+        inputPlaceholder: 'Paste an API key',
+        saveLabel: 'Save',
+        savingLabel: 'Saving...',
+        deleteLabel: 'Delete',
+        deletingLabel: 'Deleting...',
+        testLabel: 'Test',
+        testingLabel: 'Testing...',
+        errorPrefix: 'Error:',
+        providers: {
+          google: {
+            title: 'Google AI Studio',
+            description: 'Use Gemini Flash image generation with your own key.',
+          },
+          bytedance: {
+            title: 'ByteDance Ark',
+            description: 'Use Seedream generation with your own Ark API token.',
+          },
+          alibaba: {
+            title: 'Alibaba DashScope',
+            description: 'Use Tongyi Wanx generation with your own DashScope key.',
+          },
+        },
+      },
     },
     upgrade: {
       pageTitle: 'Upgrade Plans',

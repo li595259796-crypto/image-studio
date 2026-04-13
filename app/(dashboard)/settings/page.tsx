@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
+import { SettingsTabsForm } from '@/components/settings/settings-tabs-form'
 import { getUserProfile } from '@/lib/db/queries'
-import { SettingsForm } from '@/components/settings-form'
 import { DASHBOARD_HOME } from '@/lib/navigation'
 
 export default async function SettingsPage() {
@@ -17,5 +17,5 @@ export default async function SettingsPage() {
     redirect(DASHBOARD_HOME)
   }
 
-  return <SettingsForm profile={profile} />
+  return <SettingsTabsForm profile={profile} />
 }
