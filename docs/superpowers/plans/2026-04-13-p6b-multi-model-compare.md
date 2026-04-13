@@ -8,6 +8,8 @@
 
 **Tech Stack:** Next.js App Router, React 19, TypeScript, Drizzle ORM, Vercel Postgres, Vercel Blob, Excalidraw, node:test
 
+**API Reference:** See [`2026-04-13-p6b-adapter-reference.md`](./2026-04-13-p6b-adapter-reference.md) for provider quirks, env vars, and adapter skeletons. Most important P6B note: Seedream uses Ark's OpenAI-compatible image endpoint with `Authorization: Bearer ...`; no AK/SK signing flow is needed.
+
 ---
 
 ## File Map
