@@ -51,7 +51,7 @@ export function parseGenerateRequest(
 
   return {
     prompt,
-    aspectRatio,
+    aspectRatio: aspectRatio as (typeof VALID_ASPECT_RATIOS)[number],
     canvasId,
     modelIds: deduped,
   }

@@ -63,6 +63,7 @@ export async function getQuotaInfo(userId: string): Promise<{
       .where(
         and(
           eq(usageLogs.userId, userId),
+          eq(usageLogs.quotaSource, 'platform'),
           gte(usageLogs.createdAt, startOfDay)
         )
       ),
@@ -72,6 +73,7 @@ export async function getQuotaInfo(userId: string): Promise<{
       .where(
         and(
           eq(usageLogs.userId, userId),
+          eq(usageLogs.quotaSource, 'platform'),
           gte(usageLogs.createdAt, startOfMonth)
         )
       ),

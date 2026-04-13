@@ -117,6 +117,10 @@ export const images = pgTable(
     prompt: text('prompt').notNull(),
     aspectRatio: text('aspectRatio'),
     quality: text('quality'),
+    model: text('model'),
+    provider: text('provider'),
+    groupId: uuid('groupId'),
+    durationMs: integer('durationMs'),
     blobUrl: text('blobUrl').notNull(),
     sizeBytes: integer('sizeBytes'),
     sourceImages: text('sourceImages'),
@@ -132,6 +136,9 @@ export const images = pgTable(
     index('images_canvas_idx')
       .on(table.canvasId)
       .where(sql`"canvasId" IS NOT NULL`),
+    index('images_group_idx')
+      .on(table.groupId)
+      .where(sql`"groupId" IS NOT NULL`),
   ]
 )
 
@@ -146,9 +153,74 @@ export const usageLogs = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     action: text('action').$type<'generate' | 'edit'>().notNull(),
+    model: text('model'),
+    provider: text('provider'),
+    quotaSource: text('quotaSource')
+      .$type<'platform' | 'byok'>()
+      .default('platform')
+      .notNull(),
+    groupId: uuid('groupId'),
+    durationMs: integer('durationMs'),
+    canvasId: uuid('canvasId').references(() => canvases.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => [index('usage_logs_user_created_idx').on(table.userId, table.createdAt)]
+  (table) => [
+    index('usage_logs_user_created_idx').on(table.userId, table.createdAt),
+    index('usage_logs_group_idx')
+      .on(table.groupId)
+      .where(sql`"groupId" IS NOT NULL`),
+    index('usage_logs_platform_created_idx')
+      .using('btree', table.userId, sql`"createdAt" DESC`)
+      .where(sql`"quotaSource" = 'platform'`),
+  ]
+)
+
+// ============================================================
+// generationJobs
+// ============================================================
+export const generationJobs = pgTable(
+  'generationJobs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    groupId: uuid('groupId').notNull(),
+    userId: uuid('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    canvasId: uuid('canvasId').references(() => canvases.id, {
+      onDelete: 'set null',
+    }),
+    modelId: text('modelId').notNull(),
+    provider: text('provider')
+      .$type<'google' | 'bytedance' | 'alibaba' | '147ai'>()
+      .notNull(),
+    quotaSource: text('quotaSource')
+      .$type<'platform' | 'byok'>()
+      .default('platform')
+      .notNull(),
+    status: text('status')
+      .$type<'processing' | 'completed' | 'failed'>()
+      .default('processing')
+      .notNull(),
+    prompt: text('prompt').notNull(),
+    aspectRatio: text('aspectRatio'),
+    imageId: uuid('imageId').references(() => images.id, {
+      onDelete: 'set null',
+    }),
+    errorCode: text('errorCode'),
+    error: text('error'),
+    durationMs: integer('durationMs'),
+    createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' })
+      .defaultNow()
+      .notNull(),
+    completedAt: timestamp('completedAt', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('generation_jobs_canvas_status_idx').on(table.canvasId, table.status),
+    index('generation_jobs_group_idx').on(table.groupId),
+    index('generation_jobs_user_created_idx').on(table.userId, table.createdAt),
+  ]
 )
 
 // ============================================================
@@ -192,6 +264,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   canvases: many(canvases),
   images: many(images),
   usageLogs: many(usageLogs),
+  generationJobs: many(generationJobs),
   tasks: many(tasks),
 }))
 
@@ -232,6 +305,25 @@ export const usageLogsRelations = relations(usageLogs, ({ one }) => ({
   user: one(users, {
     fields: [usageLogs.userId],
     references: [users.id],
+  }),
+  canvas: one(canvases, {
+    fields: [usageLogs.canvasId],
+    references: [canvases.id],
+  }),
+}))
+
+export const generationJobsRelations = relations(generationJobs, ({ one }) => ({
+  user: one(users, {
+    fields: [generationJobs.userId],
+    references: [users.id],
+  }),
+  canvas: one(canvases, {
+    fields: [generationJobs.canvasId],
+    references: [canvases.id],
+  }),
+  image: one(images, {
+    fields: [generationJobs.imageId],
+    references: [images.id],
   }),
 }))
 
