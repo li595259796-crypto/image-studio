@@ -10,7 +10,9 @@ export type QuotaSource = 'platform' | 'byok'
 export interface GenerateOptions {
   prompt: string
   aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
-  referenceImages?: Uint8Array[]
+  quality?: '1K' | '2K' | '4K'
+  apiKey?: string
+  referenceImageUrls?: string[]
 }
 
 export type AdapterResult =
