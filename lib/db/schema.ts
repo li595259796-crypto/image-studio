@@ -217,6 +217,9 @@ export const usageLogs = pgTable(
     index('usage_logs_platform_created_idx')
       .using('btree', table.userId, sql`"createdAt" DESC`)
       .where(sql`"quotaSource" = 'platform'`),
+    index('usage_logs_byok_created_idx')
+      .using('btree', table.userId, sql`"createdAt" DESC`)
+      .where(sql`"quotaSource" = 'byok'`),
     check(
       'usage_logs_quota_source_check',
       sql`${table.quotaSource} IN ('platform', 'byok')`

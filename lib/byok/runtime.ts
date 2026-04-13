@@ -1,7 +1,7 @@
 import { decryptApiKey } from '../crypto/byok.ts'
 import type { UserApiKeyRecord } from '../db/user-api-keys-queries.ts'
 import type { ModelAdapter } from '../models/types.ts'
-import type { ByokProvider } from './providers.ts'
+import { isByokProvider, type ByokProvider } from './providers.ts'
 
 export interface ResolvedModelRunContext {
   adapter: ModelAdapter
@@ -17,12 +17,17 @@ export function decryptUserApiKeyRecords(input: {
   const providerKeys: Partial<Record<ByokProvider, string>> = {}
 
   for (const record of input.records) {
-    providerKeys[record.provider] = decryptApiKey({
-      encryptedKey: record.encryptedKey,
-      userId: input.userId,
-      masterKeyHex: input.masterKeyHex,
-      keyVersion: record.keyVersion,
-    })
+    try {
+      providerKeys[record.provider] = decryptApiKey({
+        encryptedKey: record.encryptedKey,
+        userId: input.userId,
+        masterKeyHex: input.masterKeyHex,
+        keyVersion: record.keyVersion,
+      })
+    } catch (error) {
+      // Per-record isolation: one corrupted key should not block other providers
+      console.error(`[byok] failed to decrypt key for provider ${record.provider}:`, error)
+    }
   }
 
   return providerKeys
@@ -33,7 +38,9 @@ export function resolveModelRunContexts(
   providerKeys: Partial<Record<ByokProvider, string>>
 ): ResolvedModelRunContext[] {
   return adapters.map((adapter) => {
-    const apiKey = providerKeys[adapter.definition.provider as ByokProvider]
+    const { provider } = adapter.definition
+    // Only BYOK-supported providers get user key lookup; '147ai' etc. always use platform
+    const apiKey = isByokProvider(provider) ? providerKeys[provider] : undefined
 
     if (apiKey) {
       return {

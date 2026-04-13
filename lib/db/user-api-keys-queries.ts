@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import type { ByokProvider } from '../byok/providers.ts'
+import { isByokProvider, type ByokProvider } from '../byok/providers.ts'
 
 export type UserApiKeyProvider = ByokProvider
 
@@ -37,10 +37,15 @@ function toDate(value: unknown): Date {
 }
 
 export function mapUserApiKeyRow(row: UserApiKeyRow): UserApiKeyRecord {
+  const provider = String(row.provider)
+  if (!isByokProvider(provider)) {
+    throw new Error(`Unknown BYOK provider in DB: ${provider}`)
+  }
+
   return {
     id: String(row.id),
     userId: String(row.userId),
-    provider: row.provider as UserApiKeyProvider,
+    provider,
     encryptedKey: String(row.encryptedKey),
     keyVersion: Number(row.keyVersion),
     createdAt: toDate(row.createdAt),
@@ -96,7 +101,11 @@ export async function upsertUserApiKeyForUser(input: {
     RETURNING id, "userId", provider, "encryptedKey", "keyVersion", "createdAt", "updatedAt"
   `)
 
-  return mapUserApiKeyRow(result.rows[0] as UserApiKeyRow)
+  const row = result.rows[0]
+  if (!row) {
+    throw new Error('Failed to upsert API key — no row returned')
+  }
+  return mapUserApiKeyRow(row as UserApiKeyRow)
 }
 
 export async function deleteUserApiKeyForUser(

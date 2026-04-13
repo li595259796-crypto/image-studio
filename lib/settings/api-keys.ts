@@ -46,19 +46,30 @@ export function createUserApiKeyViews(input: {
   const providers = createEmptyUserApiKeyViews()
 
   for (const record of input.encryptedRecords) {
-    providers[record.provider] = {
-      provider: record.provider,
-      configured: true,
-      maskedKey: maskApiKey(
-        decryptApiKey({
-          encryptedKey: record.encryptedKey,
-          userId: input.userId,
-          masterKeyHex: input.masterKeyHex,
-          keyVersion: record.keyVersion,
-        })
-      ),
-      keyVersion: record.keyVersion,
-      updatedAt: record.updatedAt.toISOString(),
+    try {
+      providers[record.provider] = {
+        provider: record.provider,
+        configured: true,
+        maskedKey: maskApiKey(
+          decryptApiKey({
+            encryptedKey: record.encryptedKey,
+            userId: input.userId,
+            masterKeyHex: input.masterKeyHex,
+            keyVersion: record.keyVersion,
+          })
+        ),
+        keyVersion: record.keyVersion,
+        updatedAt: record.updatedAt.toISOString(),
+      }
+    } catch {
+      // Per-record isolation: one corrupted key shows error but doesn't block others
+      providers[record.provider] = {
+        provider: record.provider,
+        configured: true,
+        maskedKey: '(key corrupted)',
+        keyVersion: record.keyVersion,
+        updatedAt: record.updatedAt.toISOString(),
+      }
     }
   }
 

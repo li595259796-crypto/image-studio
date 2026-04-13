@@ -185,10 +185,10 @@ export async function listUserApiKeysAction(): Promise<
       },
     }
   } catch (error: unknown) {
+    console.error('[settings] failed to load API keys:', error)
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : 'Failed to load API keys',
+      error: 'Failed to load API keys',
     }
   }
 }
@@ -246,9 +246,10 @@ export async function saveUserApiKeyAction(input: {
       },
     }
   } catch (error: unknown) {
+    console.error('[settings] failed to save API key:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to save API key',
+      error: 'Failed to save API key',
     }
   }
 }
@@ -281,10 +282,10 @@ export async function deleteUserApiKeyAction(
       data: { provider },
     }
   } catch (error: unknown) {
+    console.error('[settings] failed to delete API key:', error)
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : 'Failed to delete API key',
+      error: 'Failed to delete API key',
     }
   }
 }

@@ -18,11 +18,13 @@ function decodeMasterKey(masterKeyHex: string): Buffer {
     throw new Error('ENCRYPTION_KEY is required for BYOK encryption')
   }
 
-  if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
-    return Buffer.from(trimmed, 'hex')
+  // Only accept 64 hex characters (32 bytes). No UTF-8 fallback —
+  // a misconfigured password string must fail loudly, not produce a weak key.
+  if (!/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+    throw new Error('ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes)')
   }
 
-  return Buffer.from(trimmed, 'utf8')
+  return Buffer.from(trimmed, 'hex')
 }
 
 function getDerivationInfo(keyVersion: number): Buffer {
@@ -37,6 +39,10 @@ export function getByokMasterKeyFromEnv(): string {
   const value = process.env.ENCRYPTION_KEY?.trim()
   if (!value) {
     throw new Error('ENCRYPTION_KEY is not configured')
+  }
+
+  if (!/^[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error('ENCRYPTION_KEY must be exactly 64 hex characters')
   }
 
   return value
