@@ -8,25 +8,19 @@ import { seedreamAdapter } from './seedream.ts'
 // @ts-expect-error direct TS import for node --test in this repo
 import { tongyiAdapter } from './tongyi.ts'
 
-test('gemini adapter extracts inline image data from the JSON response', async (t) => {
+test('gemini adapter extracts base64 image from 147ai proxy response', async (t) => {
   const originalFetch = global.fetch
-  const originalKey = process.env.GOOGLE_AI_KEY
-  process.env.GOOGLE_AI_KEY = 'test-google-key'
+  const originalKey = process.env.IMAGE_API_KEY
+  process.env.IMAGE_API_KEY = 'test-proxy-key'
 
+  const imageBase64 = Buffer.from([1, 2, 3]).toString('base64')
   global.fetch = async () =>
     new Response(
       JSON.stringify({
-        candidates: [
+        choices: [
           {
-            content: {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: 'image/png',
-                    data: Buffer.from([1, 2, 3]).toString('base64'),
-                  },
-                },
-              ],
+            message: {
+              content: `Here is your image: data:image/png;base64,${imageBase64}`,
             },
           },
         ],
@@ -39,7 +33,7 @@ test('gemini adapter extracts inline image data from the JSON response', async (
 
   t.after(() => {
     global.fetch = originalFetch
-    process.env.GOOGLE_AI_KEY = originalKey
+    process.env.IMAGE_API_KEY = originalKey
   })
 
   const result = await geminiFlashAdapter.generate({

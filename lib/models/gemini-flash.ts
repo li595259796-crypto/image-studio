@@ -1,29 +1,27 @@
 import {
-  decodeBase64Image,
+  extractImageBytes,
   fetchJsonWithTimeout,
   getTimeoutMsFromEnv,
   ImageApiError,
 } from '../image-api.ts'
 import type { AdapterResult, GenerateOptions, ModelAdapter } from './types.ts'
 
-interface GeminiResponsePart {
-  inlineData?: {
-    mimeType?: 'image/png' | 'image/jpeg' | 'image/webp'
-    data?: string
-  }
-}
-
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: GeminiResponsePart[]
+/** 147ai proxy uses OpenAI-compatible chat completions format */
+interface ProxyResponse {
+  choices?: Array<{
+    message?: {
+      content?: string
     }
-    finishReason?: string
   }>
 }
 
-const GEMINI_ENDPOINT =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+function getProxyUrl(): string {
+  return process.env.IMAGE_API_URL ?? 'https://147ai.com/v1/chat/completions'
+}
+
+function getProxyModel(): string {
+  return process.env.IMAGE_MODEL ?? 'gemini-3.1-flash-image-preview'
+}
 
 function toAdapterError(
   error: unknown,
@@ -63,59 +61,60 @@ export const geminiFlashAdapter: ModelAdapter = {
     supportsReferenceImages: false,
   },
   async generate(options: GenerateOptions): Promise<AdapterResult> {
-    const apiKey = options.apiKey ?? process.env.GOOGLE_AI_KEY ?? ''
+    const apiKey = options.apiKey ?? process.env.IMAGE_API_KEY ?? ''
     const startedAt = Date.now()
 
     if (!apiKey) {
       return {
         ok: false,
         errorCode: 'misconfigured',
-        message: 'GOOGLE_AI_KEY environment variable is not set',
+        message: 'IMAGE_API_KEY environment variable is not set',
         durationMs: 0,
       }
     }
 
     try {
-      const response = await fetchJsonWithTimeout<GeminiResponse>(
-        GEMINI_ENDPOINT,
+      const prompt = [
+        'Generate an image with the following specifications:',
+        `- Prompt: ${options.prompt}`,
+        `- Aspect ratio: ${options.aspectRatio}`,
+      ].join('\n')
+
+      const response = await fetchJsonWithTimeout<ProxyResponse>(
+        getProxyUrl(),
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: options.prompt }] }],
-            generationConfig: {
-              responseModalities: ['IMAGE'],
-              imageConfig: {
-                aspectRatio: options.aspectRatio,
-              },
-            },
+            model: getProxyModel(),
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 8192,
           }),
         },
         {
           timeoutMs: getTimeoutMsFromEnv('GEMINI_IMAGE_TIMEOUT_MS'),
-          invalidResponseMessage: 'Gemini returned invalid JSON',
+          invalidResponseMessage: 'Gemini proxy returned invalid JSON',
         }
       )
 
-      const parts = response.candidates?.[0]?.content?.parts ?? []
-      for (const part of parts) {
-        if (part.inlineData?.data) {
-          return {
-            ok: true,
-            data: decodeBase64Image(part.inlineData.data),
-            mimeType: part.inlineData.mimeType ?? 'image/png',
-            durationMs: Date.now() - startedAt,
-          }
+      const content = response.choices?.[0]?.message?.content
+      if (!content) {
+        return {
+          ok: false,
+          errorCode: 'invalid_response',
+          message: 'Gemini proxy response did not contain image content',
+          durationMs: Date.now() - startedAt,
         }
       }
 
+      const imageData = extractImageBytes(content)
       return {
-        ok: false,
-        errorCode: 'invalid_response',
-        message: `Gemini response did not contain image bytes`,
+        ok: true,
+        data: imageData,
+        mimeType: 'image/png',
         durationMs: Date.now() - startedAt,
       }
     } catch (error: unknown) {
