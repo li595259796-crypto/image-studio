@@ -1,4 +1,4 @@
-import { and, count, eq, gte, isNotNull, lte } from 'drizzle-orm'
+import { and, count, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { generationJobs, images, usageLogs } from '@/lib/db/schema'
 
@@ -157,9 +157,7 @@ export async function preDeductQuota(input: {
  */
 export async function rollbackQuotaDeduction(usageLogIds: string[]) {
   if (usageLogIds.length === 0) return
-  for (const id of usageLogIds) {
-    await db.delete(usageLogs).where(eq(usageLogs.id, id))
-  }
+  await db.delete(usageLogs).where(inArray(usageLogs.id, usageLogIds))
 }
 
 export async function recordGenerationUsage(input: {

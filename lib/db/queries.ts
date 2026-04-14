@@ -45,9 +45,9 @@ export async function getQuotaInfo(userId: string): Promise<{
     throw new Error('User not found')
   }
 
-  // P6C raises the free daily quota from 10 -> 20. Keep a runtime floor so
-  // legacy rows behave correctly even before an operational backfill runs.
-  const dailyLimit = Math.max(user.dailyQuota, 20)
+  // Legacy rows are backfilled in supabase/migrations/002_p6c_cleanup.sql,
+  // so quota enforcement can trust the stored value directly.
+  const dailyLimit = user.dailyQuota
   const monthlyLimit = user.monthlyQuota
 
   const now = new Date()
