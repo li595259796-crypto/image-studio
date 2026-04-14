@@ -39,9 +39,9 @@ const TONGYI_ENDPOINTS = {
 const TONGYI_IMAGE_DOMAINS = ['.aliyuncs.com', '.alicdn.com'] as const
 
 function getTongyiEndpoint(): string {
-  return process.env.DASHSCOPE_REGION === 'cn'
-    ? TONGYI_ENDPOINTS.cn
-    : TONGYI_ENDPOINTS.intl
+  return process.env.DASHSCOPE_REGION === 'intl'
+    ? TONGYI_ENDPOINTS.intl
+    : TONGYI_ENDPOINTS.cn
 }
 
 function assertSafeTongyiImageUrl(url: string): void {
