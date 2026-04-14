@@ -130,7 +130,6 @@ export const userApiKeys = pgTable(
     }).defaultNow().notNull(),
   },
   (table) => [
-    index('user_api_keys_user_idx').on(table.userId),
     uniqueIndex('user_api_keys_user_provider_uidx').on(
       table.userId,
       table.provider
