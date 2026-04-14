@@ -95,10 +95,11 @@ async function fetchWithTimeout(
     })
 
     if (!response.ok) {
-      await response.text()
+      const errorBody = await response.text()
+      console.error(`[image-api] HTTP ${response.status} from ${input}:`, errorBody)
       throw new ImageApiError(
         'upstream_http',
-        `Image API returned status ${response.status}`,
+        `Image API returned status ${response.status}: ${errorBody.slice(0, 200)}`,
         { status: response.status }
       )
     }
