@@ -71,9 +71,11 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  const canvas = await getCanvasByIdAndUser(userId, parsed.canvasId)
-  if (!canvas) {
-    return jsonError('Canvas not found', 404)
+  if (parsed.canvasId) {
+    const canvas = await getCanvasByIdAndUser(userId, parsed.canvasId)
+    if (!canvas) {
+      return jsonError('Canvas not found', 404)
+    }
   }
 
   const perMinuteCount = await listRecentGenerationCountForUser(userId)

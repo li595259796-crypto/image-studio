@@ -1,7 +1,7 @@
 export type ModelProvider = 'google' | 'bytedance' | 'alibaba' | '147ai'
 
 export type ModelId =
-  | 'gemini-2.5-flash'
+  | 'gemini-3.1-flash'
   | 'seedream-5.0'
   | 'tongyi-wanx2.1'
 

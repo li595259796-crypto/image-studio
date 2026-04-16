@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useRef, useState } from 'react'
 import { Wand2, Loader2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -8,76 +8,78 @@ import { Label } from '@/components/ui/label'
 import { useLocale } from '@/components/locale-provider'
 import { copy } from '@/lib/i18n'
 import { getScenario } from '@/lib/scenarios'
-import { generateImageAction } from '@/app/actions/generate'
 import { showQuotaError } from '@/lib/error-toast'
-import { getImageActionErrorMessage } from '@/lib/image-action-error'
+import { useGenerateStream } from '@/hooks/use-generate-stream'
 import { PostActions } from '@/components/post-actions'
 import { RefineDialog } from '@/components/refine-dialog'
-import type { ActionResult, ImageResult } from '@/lib/types'
+import { getModelDefinition } from '@/lib/models/constants'
+import type { ModelId } from '@/lib/models/types'
+
+const DEFAULT_MODEL_ID: ModelId = 'gemini-3.1-flash'
 
 const aspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const
-const qualities = ['1K', '2K', '4K'] as const
 
 interface GenerateFormProps {
   onBack?: () => void
   initialPrompt?: string
   initialAspectRatio?: string
-  initialQuality?: string
 }
 
-export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initialQuality }: GenerateFormProps) {
+export function GenerateForm({ onBack, initialPrompt, initialAspectRatio }: GenerateFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
-  const [isPending, startTransition] = useTransition()
   const [prompt, setPrompt] = useState(initialPrompt ?? '')
   const [aspectRatio, setAspectRatio] = useState<string>(initialAspectRatio ?? '16:9')
-  const [quality, setQuality] = useState<string>(initialQuality ?? '2K')
-  const [submitResult, setSubmitResult] = useState<ActionResult<ImageResult> | null>(null)
+  const [selectedModelId, setSelectedModelId] = useState<ModelId>(DEFAULT_MODEL_ID)
   const { locale } = useLocale()
   const t = copy[locale].scenario
   const freeformScenario = getScenario('freeform')
 
-  function runGeneration(formData: FormData) {
-    setSubmitResult(null)
-    startTransition(async () => {
-      try {
-        const res = await generateImageAction(formData)
-        if (res.errorCode === 'quota_exceeded' && res.quota) {
-          showQuotaError(locale, res.quota)
-          return
-        }
-        setSubmitResult(res)
-      } catch {
-        setSubmitResult({
-          success: false,
-          error: locale === 'zh'
-            ? '请求超时或网络错误，请稍后重试'
-            : 'Request timed out or network error. Please try again.',
-        })
-      }
-    })
-  }
+  const {
+    status,
+    result,
+    error,
+    isStreaming,
+    startGeneration,
+    cancelGeneration,
+  } = useGenerateStream()
+
+  const isPending = isStreaming
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    formData.set('aspectRatio', aspectRatio)
-    formData.set('quality', quality)
-    runGeneration(formData)
+    if (!prompt.trim()) return
+    startGeneration({
+      prompt,
+      aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '4:3' | '3:4',
+      modelId: selectedModelId,
+    })
   }
 
   function handleRetry() {
-    if (!formRef.current) return
-    const formData = new FormData(formRef.current)
-    formData.set('aspectRatio', aspectRatio)
-    formData.set('quality', quality)
-    runGeneration(formData)
+    if (!prompt.trim()) return
+    startGeneration({
+      prompt,
+      aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '4:3' | '3:4',
+      modelId: selectedModelId,
+    })
   }
 
-  const result = submitResult?.success ? submitResult.data : undefined
-  const errorMessage =
-    submitResult && !submitResult.success && submitResult.errorCode !== 'quota_exceeded'
-      ? getImageActionErrorMessage(locale, submitResult.errorCode, submitResult.error)
-      : null
+  function getErrorMessage() {
+    if (!error) return null
+    if (error.errorCode === 'quota_exceeded') {
+      showQuotaError(locale, {
+        dailyUsed: 0,
+        dailyLimit: 0,
+        monthlyUsed: 0,
+        monthlyLimit: 0,
+      })
+      return null
+    }
+    return error.message
+  }
+
+  const errorMessage = getErrorMessage()
+  const defaultModel = getModelDefinition(DEFAULT_MODEL_ID)
 
   return (
     <div className="space-y-6">
@@ -125,20 +127,17 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
         </div>
 
         <div className="space-y-2">
-          <Label>{t.qualityLabel}</Label>
+          <Label>Model</Label>
           <div className="flex flex-wrap gap-2">
-            {qualities.map((q) => (
-              <Button
-                key={q}
-                type="button"
-                variant={quality === q ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setQuality(q)}
-                disabled={isPending}
-              >
-                {q}
-              </Button>
-            ))}
+            <Button
+              type="button"
+              variant={selectedModelId === DEFAULT_MODEL_ID ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedModelId(DEFAULT_MODEL_ID)}
+              disabled={isPending}
+            >
+              {defaultModel.label}
+            </Button>
           </div>
         </div>
 
@@ -148,7 +147,12 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio, initia
           onApply={(refined) => setPrompt(refined)}
         />
 
-        <Button type="submit" size="lg" className="w-full gap-2" disabled={isPending}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full gap-2"
+          disabled={isPending || !prompt.trim()}
+        >
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />

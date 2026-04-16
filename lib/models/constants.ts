@@ -2,8 +2,8 @@ import type { ModelDefinition, ModelId } from './types.ts'
 
 export const MODEL_DEFINITIONS = [
   {
-    id: 'gemini-2.5-flash',
-    label: 'Gemini Flash',
+    id: 'gemini-3.1-flash',
+    label: 'Gemini 3.1 Flash',
     provider: 'google',
     supportsReferenceImages: false,
   },

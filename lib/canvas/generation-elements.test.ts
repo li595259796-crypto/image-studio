@@ -9,17 +9,17 @@ import {
 
 test('builds a deterministic placeholder card per model', () => {
   const element = createGenerationPlaceholderElement({
-    modelId: 'gemini-2.5-flash',
+    modelId: 'gemini-3.1-flash',
     index: 1,
-    placeholderKey: 'run-1:gemini-2.5-flash',
+    placeholderKey: 'run-1:gemini-3.1-flash',
   })
 
   assert.equal(element.type, 'rectangle')
   assert.equal(element.width > 0, true)
   assert.deepEqual(element.customData, {
     kind: 'generation-placeholder',
-    modelId: 'gemini-2.5-flash',
-    placeholderKey: 'run-1:gemini-2.5-flash',
+    modelId: 'gemini-3.1-flash',
+    placeholderKey: 'run-1:gemini-3.1-flash',
   })
 })
 

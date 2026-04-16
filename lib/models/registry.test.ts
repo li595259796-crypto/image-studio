@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error direct TS import for node --test in this repo
 import {
   ALLOWED_MODEL_IDS,
   getModelDefinition,
@@ -10,20 +9,20 @@ import {
 
 test('only allows the P6B image model ids', () => {
   assert.deepEqual(ALLOWED_MODEL_IDS, [
-    'gemini-2.5-flash',
+    'gemini-3.1-flash',
     'seedream-5.0',
     'tongyi-wanx2.1',
   ])
 })
 
 test('returns metadata for a known model id', () => {
-  const model = getModelDefinition('gemini-2.5-flash')
+  const model = getModelDefinition('gemini-3.1-flash')
 
   assert.equal(model.provider, 'google')
-  assert.equal(model.label, 'Gemini Flash')
+  assert.equal(model.label, 'Gemini 3.1 Flash')
 })
 
 test('reports reference-image support from the model registry', () => {
-  assert.equal(supportsReferenceImages('gemini-2.5-flash'), false)
+  assert.equal(supportsReferenceImages('gemini-3.1-flash'), false)
   assert.equal(supportsReferenceImages('seedream-5.0'), true)
 })

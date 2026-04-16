@@ -15,7 +15,7 @@ const MASTER_KEY =
   '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 
 function createAdapter(
-  id: 'gemini-2.5-flash' | 'seedream-5.0' | 'tongyi-wanx2.1',
+  id: 'gemini-3.1-flash' | 'seedream-5.0' | 'tongyi-wanx2.1',
   provider: 'google' | 'bytedance' | 'alibaba'
 ): ModelAdapter {
   return {
@@ -59,7 +59,7 @@ test('decryptUserApiKeyRecords returns provider keyed plaintext values', () => {
 
 test('resolveModelRunContexts marks providers with stored keys as byok', () => {
   const adapters = [
-    createAdapter('gemini-2.5-flash', 'google'),
+    createAdapter('gemini-3.1-flash', 'google'),
     createAdapter('seedream-5.0', 'bytedance'),
     createAdapter('tongyi-wanx2.1', 'alibaba'),
   ]

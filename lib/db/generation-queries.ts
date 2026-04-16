@@ -5,7 +5,7 @@ import { generationJobs, images, usageLogs } from '@/lib/db/schema'
 export async function createGenerationJobs(input: {
   groupId: string
   userId: string
-  canvasId: string
+  canvasId: string | undefined
   prompt: string
   aspectRatio: string
   models: Array<{
@@ -91,7 +91,7 @@ export async function listRecentGenerationCountForUser(
 
 export async function insertGeneratedImageResult(input: {
   userId: string
-  canvasId: string
+  canvasId: string | undefined
   groupId: string
   model: string
   provider: string
@@ -136,7 +136,7 @@ export async function preDeductQuota(input: {
     quotaSource: 'platform' | 'byok'
   }>
   groupId: string
-  canvasId: string
+  canvasId: string | undefined
 }) {
   const rows = input.models.map((m) => ({
     userId: input.userId,
@@ -168,7 +168,7 @@ export async function recordGenerationUsage(input: {
   quotaSource: 'platform' | 'byok'
   groupId: string
   durationMs: number
-  canvasId: string
+  canvasId: string | undefined
 }) {
   const result = await db
     .insert(usageLogs)

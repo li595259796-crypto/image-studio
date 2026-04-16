@@ -28,7 +28,6 @@ export function GeneratePageClient() {
           onBack={handleBack}
           initialPrompt={searchParams.get('prompt') ?? undefined}
           initialAspectRatio={searchParams.get('aspectRatio') ?? undefined}
-          initialQuality={searchParams.get('quality') ?? undefined}
         />
       </div>
     )

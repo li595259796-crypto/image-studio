@@ -4,7 +4,7 @@ import type { ModelId } from '../models/types.ts'
 export interface ParsedGenerateRequest {
   prompt: string
   aspectRatio: (typeof VALID_ASPECT_RATIOS)[number]
-  canvasId: string
+  canvasId: string | undefined
   modelIds: ModelId[]
 }
 
@@ -20,10 +20,7 @@ export function parseGenerateRequest(
     throw new Error(`Prompt must be ${MAX_PROMPT_LENGTH} characters or fewer`)
   }
 
-  const canvasId = typeof raw.canvasId === 'string' ? raw.canvasId : ''
-  if (!canvasId) {
-    throw new Error('Canvas id is required')
-  }
+  const canvasId = typeof raw.canvasId === 'string' ? raw.canvasId : undefined
 
   const aspectRatio = raw.aspectRatio
   if (
