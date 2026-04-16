@@ -134,6 +134,7 @@ export const geminiFlashAdapter: ModelAdapter = {
 
       const responseContent = response.choices?.[0]?.message?.content
       if (!responseContent) {
+        console.error('[gemini-flash] no content in response:', JSON.stringify(response).slice(0, 500))
         return {
           ok: false,
           errorCode: 'invalid_response',
@@ -150,6 +151,7 @@ export const geminiFlashAdapter: ModelAdapter = {
         durationMs: Date.now() - startedAt,
       }
     } catch (error: unknown) {
+      console.error('[gemini-flash] generation failed:', error)
       return toAdapterError(error, startedAt)
     }
   },
