@@ -1,12 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error Direct .ts import keeps node --test working in this repo.
 import { copy, defaultLocale, locales } from './i18n.ts'
 
 function assertNonEmptyText(value: unknown, path: string) {
   assert.equal(typeof value, 'string', `${path} should be a string`)
-  assert.ok(value.trim().length > 0, `${path} should not be blank`)
+  assert.ok((value as string).trim().length > 0, `${path} should not be blank`)
 }
 
 function assertNoBlankStrings(value: unknown, path: string) {

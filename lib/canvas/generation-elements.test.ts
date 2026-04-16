@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error direct TS import for node --test in this repo
 import {
   createGeneratedImageElement,
   createGenerationPlaceholderElement,
 } from './generation-elements.ts'
+import type { FileId } from '@excalidraw/excalidraw/element/types'
 
 test('builds a deterministic placeholder card per model', () => {
   const element = createGenerationPlaceholderElement({
@@ -25,7 +25,7 @@ test('builds a deterministic placeholder card per model', () => {
 
 test('builds an image element for a completed generation result', () => {
   const element = createGeneratedImageElement({
-    fileId: 'file-1',
+    fileId: 'file-1' as FileId,
     x: 320,
     y: 120,
     width: 1024,

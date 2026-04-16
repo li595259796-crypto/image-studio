@@ -2,7 +2,6 @@
 
 import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
-import { editImage } from '@/lib/image-api'
 import { toImageActionFailureResult } from '@/lib/image-action-error'
 import { uploadImage } from '@/lib/storage'
 import { insertImage, recordUsage } from '@/lib/db/queries'
@@ -53,15 +52,12 @@ export async function editImageAction(
       return { success: false, error: 'File content does not match a supported image format' }
     }
 
-    const imageBuffers: Buffer[] = [buffer1]
-
     if (image2 && image2.size > 0) {
       const buffer2 = Buffer.from(await image2.arrayBuffer())
       const detected2 = await fileTypeFromBuffer(buffer2)
       if (!detected2 || !ALLOWED_MIMES.includes(detected2.mime)) {
         return { success: false, error: 'File 2 content does not match a supported image format' }
       }
-      imageBuffers.push(buffer2)
     }
 
     const quota = await checkQuota(session.user.id)
@@ -79,21 +75,57 @@ export async function editImageAction(
       }
     }
 
-    const resultBuffer = await editImage(prompt, imageBuffers)
+    // Upload reference images first, then call /api/edit
+    const referenceUrls: string[] = []
+    for (const file of [image1, image2]) {
+      if (!file || file.size === 0) continue
+      const buffer = Buffer.from(await file.arrayBuffer())
+      const { url } = await uploadImage(session.user.id, buffer)
+      referenceUrls.push(url)
+    }
 
-    const { url } = await uploadImage(session.user.id, resultBuffer)
-
-    const record = await insertImage({
-      userId: session.user.id,
-      type: 'edit',
-      prompt,
-      blobUrl: url,
-      sizeBytes: resultBuffer.length,
+    const baseUrl =
+      process.env.APP_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    const res = await fetch(`${baseUrl}/api/edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        referenceImages: referenceUrls,
+        modelIds: ['gemini-3.1-flash'],
+      }),
     })
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      return {
+        success: false,
+        error: (body as { error?: string }).error ?? 'Edit failed',
+      }
+    }
+
+    const body = (await res.json()) as {
+      success: boolean
+      results: Array<{
+        imageId?: string
+        blobUrl?: string
+        errorCode?: string
+        message?: string
+      }>
+    }
+
+    const result = body.results?.[0]
+    if (!result || !result.imageId || !result.blobUrl) {
+      return {
+        success: false,
+        error: result?.message ?? 'Edit failed',
+      }
+    }
 
     await recordUsage(session.user.id, 'edit')
 
-    return { success: true, data: { imageId: record.id, blobUrl: url } }
+    return { success: true, data: { imageId: result.imageId, blobUrl: result.blobUrl } }
   } catch (err: unknown) {
     console.error('[image-action-failure]', {
       operation: 'edit',

@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error direct TS import for node --test in this repo
 import { parseSseMessages } from './use-canvas-generation-stream.ts'
 
 test('parseSseMessages returns parsed events and preserves the trailing partial chunk', () => {

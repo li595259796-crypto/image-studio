@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error direct TS import for node --test in this repo
 import { mapUserApiKeyRow } from './user-api-keys-queries.ts'
 
 test('maps a raw SQL row into a typed user API key record', () => {

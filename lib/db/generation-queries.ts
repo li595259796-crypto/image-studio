@@ -129,7 +129,7 @@ export async function insertGeneratedImageResult(input: {
  */
 export async function preDeductQuota(input: {
   userId: string
-  action: 'generate'
+  action: 'generate' | 'edit'
   models: Array<{
     modelId: string
     provider: string

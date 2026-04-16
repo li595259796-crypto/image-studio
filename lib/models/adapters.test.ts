@@ -1,11 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error direct TS import for node --test in this repo
 import { geminiFlashAdapter } from './gemini-flash.ts'
-// @ts-expect-error direct TS import for node --test in this repo
 import { seedreamAdapter } from './seedream.ts'
-// @ts-expect-error direct TS import for node --test in this repo
 import { tongyiAdapter } from './tongyi.ts'
 
 test('gemini adapter extracts base64 image from 147ai proxy response', async (t) => {

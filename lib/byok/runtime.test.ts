@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-// @ts-expect-error direct TS import for node --test in this repo
 import { encryptApiKey } from '../crypto/byok.ts'
-// @ts-expect-error direct TS import for node --test in this repo
 import {
   countPlatformRunContexts,
   decryptUserApiKeyRecords,

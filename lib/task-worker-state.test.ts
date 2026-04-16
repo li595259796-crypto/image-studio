@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error Direct .ts import keeps node --test working in this repo.
 import { shouldCleanupTempSources } from './task-worker-state.ts'
 
 test('does not clean edit temp sources for retryable failures', () => {

@@ -2,10 +2,11 @@
 
 import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
-import { generateImage } from '@/lib/image-api'
 import { toImageActionFailureResult } from '@/lib/image-action-error'
 import { uploadImage } from '@/lib/storage'
 import { insertImage, recordUsage } from '@/lib/db/queries'
+import { runModelGeneration } from '@/lib/models/router'
+import { geminiFlashAdapter } from '@/lib/models/gemini-flash'
 import type { ActionResult, ImageResult } from '@/lib/types'
 
 export async function generateImageAction(
@@ -20,7 +21,6 @@ export async function generateImageAction(
 
     const prompt = formData.get('prompt') as string | null
     const aspectRatio = (formData.get('aspectRatio') as string) ?? '16:9'
-    const quality = (formData.get('quality') as string) ?? '2K'
 
     if (!prompt?.trim()) {
       return { success: false, error: 'Prompt is required' }
@@ -32,12 +32,8 @@ export async function generateImageAction(
     }
 
     const VALID_ASPECT_RATIOS = new Set(['1:1', '16:9', '9:16', '4:3', '3:4'])
-    const VALID_QUALITIES = new Set(['1K', '2K', '4K'])
     if (!VALID_ASPECT_RATIOS.has(aspectRatio)) {
       return { success: false, error: 'Invalid aspect ratio' }
-    }
-    if (!VALID_QUALITIES.has(quality)) {
-      return { success: false, error: 'Invalid quality value' }
     }
 
     const quota = await checkQuota(session.user.id)
@@ -55,18 +51,30 @@ export async function generateImageAction(
       }
     }
 
-    const imageBuffer = await generateImage(prompt, aspectRatio, quality)
+    // Call 147ai adapter directly (sync, no SSE needed)
+    const result = await runModelGeneration({
+      adapter: geminiFlashAdapter,
+      options: { prompt, aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '4:3' | '3:4' },
+    })
 
-    const { url } = await uploadImage(session.user.id, imageBuffer)
+    if (!result.ok) {
+      return {
+        success: false,
+        error: result.message,
+        errorCode: result.errorCode === 'timeout' ? 'upstream_timeout' : 'upstream_unavailable',
+      }
+    }
+
+    const { url } = await uploadImage(session.user.id, result.data, result.mimeType)
 
     const record = await insertImage({
       userId: session.user.id,
       type: 'generate',
       prompt,
       aspectRatio,
-      quality,
+      quality: '2K',
       blobUrl: url,
-      sizeBytes: imageBuffer.length,
+      sizeBytes: result.data.length,
     })
 
     await recordUsage(session.user.id, 'generate')

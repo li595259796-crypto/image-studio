@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error Direct .ts import keeps node --test working in this repo.
 import { getTaskRecoveryAction } from './task-recovery.ts'
 
 const now = new Date('2026-04-10T12:00:00.000Z').getTime()

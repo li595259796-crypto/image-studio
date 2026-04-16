@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error Direct .ts import keeps node --test working in this repo.
 import { triggerWorker } from './trigger-worker.ts'
 
 test('logs non-2xx worker trigger responses', async () => {

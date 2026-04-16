@@ -9,6 +9,6 @@ test('rollbackQuotaDeduction batches placeholder row cleanup with inArray', () =
   )
 
   assert.notEqual(rollbackFunction, null)
-  assert.match(rollbackFunction[0], /inArray\(\s*usageLogs\.id,\s*usageLogIds\s*\)/)
-  assert.doesNotMatch(rollbackFunction[0], /for\s*\(const id of usageLogIds\)/)
+  assert.match(rollbackFunction![0], /inArray\(\s*usageLogs\.id,\s*usageLogIds\s*\)/)
+  assert.doesNotMatch(rollbackFunction![0], /for\s*\(const id of usageLogIds\)/)
 })

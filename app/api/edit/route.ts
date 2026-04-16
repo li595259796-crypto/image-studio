@@ -1,0 +1,215 @@
+import { randomUUID } from 'node:crypto'
+import { auth } from '@/lib/auth'
+import {
+  countPlatformRunContexts,
+  decryptUserApiKeyRecords,
+  resolveModelRunContexts,
+} from '@/lib/byok/runtime'
+import {
+  insertGeneratedImageResult,
+  markGenerationJobCompleted,
+  markGenerationJobFailed,
+  preDeductQuota,
+  rollbackQuotaDeduction,
+} from '@/lib/db/generation-queries'
+import { getQuotaInfo } from '@/lib/db/queries'
+import { listUserApiKeysForUser } from '@/lib/db/user-api-keys-queries'
+import { getByokMasterKeyFromEnv } from '@/lib/crypto/byok'
+import { getModelAdaptersForIds, runModelGeneration } from '@/lib/models/router'
+import { uploadImage } from '@/lib/storage'
+import type { ModelId } from '@/lib/models/types'
+import type { ByokProvider } from '@/lib/byok/providers'
+
+export const maxDuration = 300
+export const runtime = 'nodejs'
+
+function jsonError(message: string, status: number): Response {
+  return Response.json({ error: message }, { status })
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return jsonError('Unauthorized', 401)
+  }
+  const userId = session.user.id
+
+  let raw: Record<string, unknown>
+  try {
+    raw = (await request.json()) as Record<string, unknown>
+  } catch {
+    return jsonError('Invalid JSON', 400)
+  }
+
+  const prompt = typeof raw.prompt === 'string' ? raw.prompt.trim() : ''
+  if (!prompt) {
+    return jsonError('Prompt is required', 400)
+  }
+  if (prompt.length > 2000) {
+    return jsonError('Prompt must be 2000 characters or fewer', 400)
+  }
+
+  if (!Array.isArray(raw.referenceImages) || raw.referenceImages.length === 0) {
+    return jsonError('At least one reference image is required', 400)
+  }
+  if (raw.referenceImages.length > 2) {
+    return jsonError('At most 2 reference images are supported', 400)
+  }
+
+  const modelIds = raw.modelIds
+  if (!Array.isArray(modelIds) || modelIds.length === 0) {
+    return jsonError('At least one model must be specified', 400)
+  }
+
+  const groupId = randomUUID()
+  const adapters = getModelAdaptersForIds(modelIds as ModelId[])
+  const storedApiKeys = await listUserApiKeysForUser(userId)
+  let providerKeys: Partial<Record<ByokProvider, string>> = {}
+  if (storedApiKeys.length > 0) {
+    try {
+      providerKeys = decryptUserApiKeyRecords({
+        records: storedApiKeys,
+        userId,
+        masterKeyHex: getByokMasterKeyFromEnv(),
+      })
+    } catch (error: unknown) {
+      console.error('[edit] failed to resolve BYOK keys', error)
+      return jsonError('BYOK key decryption unavailable', 500)
+    }
+  }
+  const runContexts = resolveModelRunContexts(adapters, providerKeys)
+
+  const platformModelCount = countPlatformRunContexts(runContexts)
+  if (platformModelCount > 0) {
+    const quota = await getQuotaInfo(userId)
+    if (
+      quota.dailyUsed + platformModelCount > quota.dailyLimit ||
+      quota.monthlyUsed + platformModelCount > quota.monthlyLimit
+    ) {
+      return jsonError('Quota exceeded', 403)
+    }
+  }
+
+  const preDeducted = await preDeductQuota({
+    userId,
+    action: 'edit',
+    models: runContexts.map((context) => ({
+      modelId: context.adapter.definition.id,
+      provider: context.adapter.definition.provider,
+      quotaSource: context.quotaSource,
+    })),
+    groupId,
+    canvasId: undefined,
+  })
+  const preDeductedIds = preDeducted.map((row) => row.id)
+
+  // Fetch reference images as base64
+  const referenceImages: Uint8Array[] = []
+  const referenceMimeTypes: string[] = []
+  for (const url of raw.referenceImages as string[]) {
+    try {
+      const parsed = new URL(url)
+      if (
+        parsed.protocol !== 'https:' ||
+        !parsed.hostname.endsWith('.blob.vercel-storage.com')
+      ) {
+        throw new Error('Invalid image URL')
+      }
+      const response = await fetch(parsed.toString(), {
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status}`)
+      }
+      const arrayBuffer = await response.arrayBuffer()
+      referenceImages.push(new Uint8Array(arrayBuffer))
+      referenceMimeTypes.push(response.headers.get('content-type') ?? 'image/png')
+    } catch (error: unknown) {
+      await rollbackQuotaDeduction(preDeductedIds).catch(() => {})
+      return jsonError(
+        `Failed to load reference image: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+        400
+      )
+    }
+  }
+
+  // Build reference image content for the prompt
+  const referenceImageContent = referenceImages
+    .map((img, i) => {
+      const mime = referenceMimeTypes[i]
+      const b64 = Buffer.from(img).toString('base64')
+      return `<reference_image index="${i}">data:${mime};base64,${b64}</reference_image>`
+    })
+    .join('\n')
+
+  // Run generation for each model adapter
+  const results: Array<{
+    modelId: string
+    provider: string
+    imageId?: string
+    blobUrl?: string
+    errorCode?: string
+    message?: string
+    durationMs?: number
+  }> = []
+
+  for (let i = 0; i < runContexts.length; i++) {
+    const runContext = runContexts[i]
+    const adapter = runContext.adapter
+    const jobId = randomUUID()
+
+    const result = await runModelGeneration({
+      adapter,
+      options: {
+        prompt: `${referenceImageContent}\n\nEdit this image with the following instructions: ${prompt}`,
+        aspectRatio: '1:1',
+        apiKey: runContext.apiKey,
+      },
+    })
+
+    if (!result.ok) {
+      await markGenerationJobFailed(jobId, userId, {
+        errorCode: result.errorCode,
+        error: result.message,
+        durationMs: result.durationMs,
+      })
+      results.push({
+        modelId: adapter.definition.id,
+        provider: adapter.definition.provider,
+        errorCode: result.errorCode,
+        message: result.message,
+        durationMs: result.durationMs,
+      })
+    } else {
+      const upload = await uploadImage(userId, result.data, result.mimeType)
+      const image = await insertGeneratedImageResult({
+        userId,
+        canvasId: undefined,
+        groupId,
+        model: adapter.definition.id,
+        provider: adapter.definition.provider,
+        prompt,
+        aspectRatio: '1:1',
+        blobUrl: upload.url,
+        sizeBytes: upload.size,
+        durationMs: result.durationMs,
+      })
+      await markGenerationJobCompleted(jobId, userId, image.id, result.durationMs)
+      results.push({
+        modelId: adapter.definition.id,
+        provider: adapter.definition.provider,
+        imageId: image.id,
+        blobUrl: image.blobUrl,
+        durationMs: result.durationMs,
+      })
+    }
+  }
+
+  return Response.json({
+    success: true,
+    groupId,
+    results,
+  })
+}

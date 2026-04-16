@@ -1,11 +1,12 @@
 // FROZEN (P4 async rollback): worker engine kept for future re-activation.
 // No sync code path uses this; only /api/worker/process and /api/cron/process-tasks
 // still import it, but those routes are orphaned without a client trigger.
-import { generateImage, editImage } from '@/lib/image-api'
 import { uploadImage } from '@/lib/storage'
 import { insertImage, claimNextTask, saveTaskResult, markTaskCompleted, markTaskRetryable, markTaskFailed, deleteUsageLog } from '@/lib/db/queries'
 import { del } from '@vercel/blob'
 import { shouldCleanupTempSources, type TaskTempSourceOutcome } from '@/lib/task-worker-state'
+import { runModelGeneration } from '@/lib/models/router'
+import { geminiFlashAdapter } from '@/lib/models/gemini-flash'
 import type { GenerateTaskPayload, EditTaskPayload } from '@/lib/types'
 
 async function cleanupTempSources(sourceUrls: string[]): Promise<void> {
@@ -32,11 +33,6 @@ async function executeTask(task: {
   let tempSourceOutcome: TaskTempSourceOutcome | null = null
 
   try {
-    if (task.type === 'edit') {
-      const payload = JSON.parse(task.payload) as EditTaskPayload
-      tempSourceUrls = payload.sourceImageUrls
-    }
-
     // Idempotency: if task already has a result (prior attempt succeeded at insertImage
     // but failed at markTaskCompleted), skip re-execution and just mark completed
     if (task.result) {
@@ -48,32 +44,44 @@ async function executeTask(task: {
 
     if (task.type === 'generate') {
       const payload = JSON.parse(task.payload) as GenerateTaskPayload
-      const imageBuffer = await generateImage(payload.prompt, payload.aspectRatio, payload.quality)
-      const { url } = await uploadImage(task.userId, imageBuffer)
+      const genResult = await runModelGeneration({
+        adapter: geminiFlashAdapter,
+        options: {
+          prompt: payload.prompt,
+          aspectRatio: (payload.aspectRatio ?? '1:1') as '1:1' | '16:9' | '9:16' | '4:3' | '3:4',
+        },
+      })
+      if (!genResult.ok) {
+        throw new Error(`Generation failed: ${genResult.errorCode} ${genResult.message}`)
+      }
+      const { url } = await uploadImage(task.userId, genResult.data, genResult.mimeType)
 
       const record = await insertImage({
         userId: task.userId,
         type: 'generate',
         prompt: payload.prompt,
-        aspectRatio: payload.aspectRatio,
+        aspectRatio: payload.aspectRatio ?? '1:1',
         quality: payload.quality,
         blobUrl: url,
-        sizeBytes: imageBuffer.length,
+        sizeBytes: genResult.data.length,
       })
 
-      // Save result immediately for idempotency — if markTaskCompleted crashes,
-      // the result is preserved and the retry path (task.result check) will skip re-execution
       const taskResult = { imageId: record.id, blobUrl: url }
       await saveTaskResult(task.id, taskResult)
       await markTaskCompleted(task.id, taskResult)
     } else {
       const payload = JSON.parse(task.payload) as EditTaskPayload
+      tempSourceUrls = payload.sourceImageUrls
 
-      const imageBuffers: Buffer[] = []
-      for (const sourceUrl of payload.sourceImageUrls) {
-        // SSRF guard: only fetch from Vercel Blob storage (hostname check, not substring)
+      const referenceImageContent: string[] = []
+      for (let i = 0; i < payload.sourceImageUrls.length; i++) {
+        const sourceUrl = payload.sourceImageUrls[i]
+        // SSRF guard: only fetch from Vercel Blob storage
         const parsed = new URL(sourceUrl)
-        if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('.blob.vercel-storage.com')) {
+        if (
+          parsed.protocol !== 'https:' ||
+          !parsed.hostname.endsWith('.blob.vercel-storage.com')
+        ) {
           throw new Error('Rejected fetch to disallowed URL')
         }
         const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(30_000) })
@@ -81,18 +89,33 @@ async function executeTask(task: {
           throw new Error(`Failed to fetch source image: ${response.status}`)
         }
         const arrayBuffer = await response.arrayBuffer()
-        imageBuffers.push(Buffer.from(arrayBuffer))
+        const mimeType = response.headers.get('content-type') ?? 'image/png'
+        const b64 = Buffer.from(arrayBuffer).toString('base64')
+        referenceImageContent.push(
+          `<reference_image index="${i}">data:${mimeType};base64,${b64}</reference_image>`
+        )
       }
 
-      const resultBuffer = await editImage(payload.prompt, imageBuffers)
-      const { url } = await uploadImage(task.userId, resultBuffer)
+      const editResult = await runModelGeneration({
+        adapter: geminiFlashAdapter,
+        options: {
+          prompt:
+            `${referenceImageContent.join('\n')}\n\nEdit this image with the following instructions: ${payload.prompt}`,
+          aspectRatio: '1:1',
+        },
+      })
+      if (!editResult.ok) {
+        throw new Error(`Edit failed: ${editResult.errorCode} ${editResult.message}`)
+      }
+
+      const { url } = await uploadImage(task.userId, editResult.data, editResult.mimeType)
 
       const record = await insertImage({
         userId: task.userId,
         type: 'edit',
         prompt: payload.prompt,
         blobUrl: url,
-        sizeBytes: resultBuffer.length,
+        sizeBytes: editResult.data.length,
         sourceImages: JSON.stringify(payload.sourceImageUrls.map((_, i) => `source-${i}.png`)),
       })
 
@@ -103,14 +126,22 @@ async function executeTask(task: {
     }
   } catch (error: unknown) {
     const rawMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.error('[task-worker] Task failed', { taskId: task.id, type: task.type, error: rawMessage })
+    console.error('[task-worker] Task failed', {
+      taskId: task.id,
+      type: task.type,
+      error: rawMessage,
+    })
 
     // Sanitize error for user-facing lastError.
     // SAFETY: the fallback 'Image processing failed' is intentionally generic —
     // any unrecognized error falls through to it, ensuring no internal details leak.
     const normalizedMessage = rawMessage.toLowerCase()
     let errorMessage = 'Image processing failed'
-    if (normalizedMessage.includes('timeout') || normalizedMessage.includes('abort') || normalizedMessage.includes('aborted')) {
+    if (
+      normalizedMessage.includes('timeout') ||
+      normalizedMessage.includes('abort') ||
+      normalizedMessage.includes('aborted')
+    ) {
       errorMessage = 'Processing timed out, will retry'
     } else if (normalizedMessage.includes('source image')) {
       errorMessage = 'Failed to load source image'
@@ -131,7 +162,10 @@ async function executeTask(task: {
       tempSourceOutcome = 'failed'
     }
   } finally {
-    if (shouldCleanupTempSources(task.type, tempSourceOutcome) && tempSourceUrls.length > 0) {
+    if (
+      shouldCleanupTempSources(task.type, tempSourceOutcome) &&
+      tempSourceUrls.length > 0
+    ) {
       await cleanupTempSources(tempSourceUrls)
     }
   }
@@ -153,7 +187,7 @@ export async function runWorkerLoop(options: {
   const startTime = Date.now()
   let processed = 0
 
-  while (processed < maxTasks && (Date.now() - startTime) < maxDurationMs) {
+  while (processed < maxTasks && Date.now() - startTime < maxDurationMs) {
     const found = await processNextTask()
     if (!found) break
     processed++

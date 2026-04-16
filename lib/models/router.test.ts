@@ -1,9 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-// @ts-expect-error direct TS import for node --test in this repo
 import { runModelGeneration } from './router.ts'
-// @ts-expect-error direct TS import for node --test in this repo
 import type { ModelAdapter } from './types.ts'
 
 const baseAdapter: ModelAdapter = {
