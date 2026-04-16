@@ -27,6 +27,19 @@ function jsonError(message: string, status: number): Response {
   return Response.json({ error: message }, { status })
 }
 
+// SSRF guard: only allow Vercel Blob storage URLs
+function isAllowedImageUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr)
+    return (
+      parsed.protocol === 'https:' &&
+      parsed.hostname.endsWith('.blob.vercel-storage.com')
+    )
+  } catch {
+    return false
+  }
+}
+
 export async function POST(request: Request): Promise<Response> {
   const session = await auth()
   if (!session?.user?.id) {
@@ -54,6 +67,13 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (raw.referenceImages.length > 2) {
     return jsonError('At most 2 reference images are supported', 400)
+  }
+
+  const referenceImageUrls = raw.referenceImages as string[]
+  for (const url of referenceImageUrls) {
+    if (!isAllowedImageUrl(url)) {
+      return jsonError('Invalid reference image URL', 400)
+    }
   }
 
   const modelIds = raw.modelIds
@@ -103,47 +123,6 @@ export async function POST(request: Request): Promise<Response> {
   })
   const preDeductedIds = preDeducted.map((row) => row.id)
 
-  // Fetch reference images as base64
-  const referenceImages: Uint8Array[] = []
-  const referenceMimeTypes: string[] = []
-  for (const url of raw.referenceImages as string[]) {
-    try {
-      const parsed = new URL(url)
-      if (
-        parsed.protocol !== 'https:' ||
-        !parsed.hostname.endsWith('.blob.vercel-storage.com')
-      ) {
-        throw new Error('Invalid image URL')
-      }
-      const response = await fetch(parsed.toString(), {
-        signal: AbortSignal.timeout(30_000),
-      })
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.status}`)
-      }
-      const arrayBuffer = await response.arrayBuffer()
-      referenceImages.push(new Uint8Array(arrayBuffer))
-      referenceMimeTypes.push(response.headers.get('content-type') ?? 'image/png')
-    } catch (error: unknown) {
-      await rollbackQuotaDeduction(preDeductedIds).catch(() => {})
-      return jsonError(
-        `Failed to load reference image: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-        400
-      )
-    }
-  }
-
-  // Build reference image content for the prompt
-  const referenceImageContent = referenceImages
-    .map((img, i) => {
-      const mime = referenceMimeTypes[i]
-      const b64 = Buffer.from(img).toString('base64')
-      return `<reference_image index="${i}">data:${mime};base64,${b64}</reference_image>`
-    })
-    .join('\n')
-
   // Run generation for each model adapter
   const results: Array<{
     modelId: string
@@ -163,9 +142,10 @@ export async function POST(request: Request): Promise<Response> {
     const result = await runModelGeneration({
       adapter,
       options: {
-        prompt: `${referenceImageContent}\n\nEdit this image with the following instructions: ${prompt}`,
+        prompt: `Edit this image according to the following instructions: ${prompt}`,
         aspectRatio: '1:1',
         apiKey: runContext.apiKey,
+        referenceImageUrls,
       },
     })
 

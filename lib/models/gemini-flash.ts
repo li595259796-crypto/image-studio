@@ -58,7 +58,7 @@ export const geminiFlashAdapter: ModelAdapter = {
     id: 'gemini-3.1-flash',
     label: 'Gemini 3.1 Flash',
     provider: 'google',
-    supportsReferenceImages: false,
+    supportsReferenceImages: true,
   },
   async generate(options: GenerateOptions): Promise<AdapterResult> {
     const apiKey = options.apiKey ?? process.env.IMAGE_API_KEY ?? ''
@@ -74,11 +74,43 @@ export const geminiFlashAdapter: ModelAdapter = {
     }
 
     try {
-      const prompt = [
+      // Build message content: reference images (if any) + text prompt
+      type ContentPart =
+        | { type: 'text'; text: string }
+        | { type: 'image_url'; image_url: { url: string; detail?: string } }
+
+      const content: ContentPart[] = []
+
+      // Add reference images as base64 data URIs
+      if (options.referenceImageUrls && options.referenceImageUrls.length > 0) {
+        for (const url of options.referenceImageUrls) {
+          const response = await fetch(url, {
+            signal: AbortSignal.timeout(30_000),
+          })
+          if (!response.ok) {
+            return {
+              ok: false,
+              errorCode: 'provider_error',
+              message: `Failed to fetch reference image: ${response.status}`,
+              durationMs: Date.now() - startedAt,
+            }
+          }
+          const buffer = Buffer.from(await response.arrayBuffer())
+          const mimeType = response.headers.get('content-type') ?? 'image/png'
+          const b64 = buffer.toString('base64')
+          content.push({
+            type: 'image_url',
+            image_url: { url: `data:${mimeType};base64,${b64}`, detail: 'high' },
+          })
+        }
+      }
+
+      const textPrompt = [
         'Generate an image with the following specifications:',
         `- Prompt: ${options.prompt}`,
         `- Aspect ratio: ${options.aspectRatio}`,
       ].join('\n')
+      content.push({ type: 'text', text: textPrompt })
 
       const response = await fetchJsonWithTimeout<ProxyResponse>(
         getProxyUrl(),
@@ -90,7 +122,7 @@ export const geminiFlashAdapter: ModelAdapter = {
           },
           body: JSON.stringify({
             model: getProxyModel(),
-            messages: [{ role: 'user', content: prompt }],
+            messages: [{ role: 'user', content }],
             max_tokens: 8192,
           }),
         },
@@ -100,8 +132,8 @@ export const geminiFlashAdapter: ModelAdapter = {
         }
       )
 
-      const content = response.choices?.[0]?.message?.content
-      if (!content) {
+      const responseContent = response.choices?.[0]?.message?.content
+      if (!responseContent) {
         return {
           ok: false,
           errorCode: 'invalid_response',
@@ -110,7 +142,7 @@ export const geminiFlashAdapter: ModelAdapter = {
         }
       }
 
-      const imageData = extractImageBytes(content)
+      const imageData = extractImageBytes(responseContent)
       return {
         ok: true,
         data: imageData,
