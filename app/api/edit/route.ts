@@ -41,17 +41,21 @@ function isAllowedImageUrl(urlStr: string): boolean {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return jsonError('Unauthorized', 401)
-  }
-  const userId = session.user.id
-
   let raw: Record<string, unknown>
   try {
     raw = (await request.json()) as Record<string, unknown>
   } catch {
     return jsonError('Invalid JSON', 400)
+  }
+
+  // For internal calls from editImageAction, userId comes in the body
+  let userId: string | null = (raw.userId as string) || null
+  if (!userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return jsonError('Unauthorized', 401)
+    }
+    userId = session.user.id
   }
 
   const prompt = typeof raw.prompt === 'string' ? raw.prompt.trim() : ''

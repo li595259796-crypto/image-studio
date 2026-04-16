@@ -94,6 +94,7 @@ export async function editImageAction(
         prompt,
         referenceImages: referenceUrls,
         modelIds: ['gemini-3.1-flash'],
+        userId: session.user.id,
       }),
     })
 
