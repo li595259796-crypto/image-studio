@@ -38,6 +38,7 @@ export class ImageApiError extends Error {
 interface TimedFetchOptions {
   timeoutMs?: number
   invalidResponseMessage?: string
+  retries?: number // number of retries on 429 (default 3)
 }
 
 export function getTimeoutMsFromEnv(
@@ -57,55 +58,72 @@ async function fetchWithTimeout(
   options: TimedFetchOptions = {}
 ): Promise<Response> {
   const timeoutMs = options.timeoutMs ?? getTimeoutMsFromEnv()
-  const controller = new AbortController()
-  let didTimeout = false
-  const timeoutId = setTimeout(() => {
-    didTimeout = true
-    controller.abort()
-  }, timeoutMs)
+  const maxRetries = options.retries ?? 3
 
-  try {
-    const response = await fetch(input, {
-      ...init,
-      signal: controller.signal,
-    })
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController()
+    let didTimeout = false
+    const timeoutId = setTimeout(() => {
+      didTimeout = true
+      controller.abort()
+    }, timeoutMs)
 
-    if (!response.ok) {
-      const errorBody = await response.text()
-      console.error(`[image-api] HTTP ${response.status} from ${input}:`, errorBody)
-      throw new ImageApiError(
-        'upstream_http',
-        `Image API returned status ${response.status}: ${errorBody.slice(0, 200)}`,
-        { status: response.status }
-      )
-    }
+    try {
+      const response = await fetch(input, {
+        ...init,
+        signal: controller.signal,
+      })
 
-    return response
-  } catch (error: unknown) {
-    if (error instanceof ImageApiError) {
+      if (response.status === 429 && attempt < maxRetries) {
+        clearTimeout(timeoutId)
+        // Exponential backoff: 1s, 2s, 4s
+        const delayMs = 1000 * Math.pow(2, attempt)
+        console.warn(`[image-api] 429 rate limit, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})`)
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+        continue
+      }
+
+      if (!response.ok) {
+        const errorBody = await response.text()
+        console.error(`[image-api] HTTP ${response.status} from ${input}:`, errorBody)
+        throw new ImageApiError(
+          'upstream_http',
+          `Image API returned status ${response.status}: ${errorBody.slice(0, 200)}`,
+          { status: response.status }
+        )
+      }
+
+      return response
+    } catch (error: unknown) {
+      clearTimeout(timeoutId)
+      if (error instanceof ImageApiError) {
+        throw error
+      }
+
+      if (didTimeout || (error instanceof Error && error.name === 'AbortError')) {
+        throw new ImageApiError(
+          'timeout',
+          `Image API request timed out after ${timeoutMs}ms`,
+          { cause: error }
+        )
+      }
+
+      if (error instanceof Error) {
+        throw new ImageApiError(
+          'network',
+          `Image API request failed: ${error.message}`,
+          { cause: error }
+        )
+      }
+
       throw error
+    } finally {
+      clearTimeout(timeoutId)
     }
-
-    if (didTimeout || (error instanceof Error && error.name === 'AbortError')) {
-      throw new ImageApiError(
-        'timeout',
-        `Image API request timed out after ${timeoutMs}ms`,
-        { cause: error }
-      )
-    }
-
-    if (error instanceof Error) {
-      throw new ImageApiError(
-        'network',
-        `Image API request failed: ${error.message}`,
-        { cause: error }
-      )
-    }
-
-    throw error
-  } finally {
-    clearTimeout(timeoutId)
   }
+
+  // Should not reach here, but satisfy TypeScript
+  throw new ImageApiError('network', 'Unexpected fetch loop exit')
 }
 
 export async function fetchJsonWithTimeout<T>(
