@@ -32,6 +32,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs'
 import type { ByokProvider } from '@/lib/byok/providers'
+import { copy } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
 import {
   createEmptyUserApiKeyViews,
@@ -202,6 +203,8 @@ export function SettingsTabsForm({ profile }: SettingsTabsFormProps) {
 
   function handleLocaleChange(nextLocale: 'zh' | 'en') {
     const previousLocale = selectedLocale
+    const nextDict = copy[nextLocale].settings
+    const previousDict = copy[previousLocale].settings
     setSelectedLocale(nextLocale)
     setLocale(nextLocale)
 
@@ -211,11 +214,13 @@ export function SettingsTabsForm({ profile }: SettingsTabsFormProps) {
       if (!result.success) {
         setSelectedLocale(previousLocale)
         setLocale(previousLocale)
-        toast.error(result.error ?? t.localeFailed)
+        // Show failure in the previous locale since user is back to it.
+        toast.error(result.error ?? previousDict.localeFailed)
         return
       }
 
-      toast.success(t.localeSuccess)
+      // Toast in the NEW locale (nextDict), not the old closure-captured `t`.
+      toast.success(nextDict.localeSuccess)
       router.refresh()
     })
   }
