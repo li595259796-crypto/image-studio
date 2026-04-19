@@ -7,7 +7,7 @@ import { users } from '@/lib/db/schema'
 // for a format-only check (final source of truth is delivery at reset time).
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_PASSWORD_LENGTH = 8
-const MAX_PASSWORD_LENGTH = 72 // bcrypt silently truncates past 72 bytes
+const MAX_PASSWORD_BYTES = 72 // bcrypt silently truncates past 72 bytes
 const MAX_EMAIL_LENGTH = 254 // RFC 5321 practical cap
 const MAX_NAME_LENGTH = 100
 
@@ -40,9 +40,9 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  if (password.length > MAX_PASSWORD_LENGTH) {
+  if (Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
     return NextResponse.json(
-      { error: `Password must be ${MAX_PASSWORD_LENGTH} characters or fewer` },
+      { error: 'Password is too long (UTF-8 encoded length exceeds bcrypt limit — try a shorter passphrase)' },
       { status: 400 }
     )
   }
