@@ -62,6 +62,7 @@ interface LocaleCopy {
     statusGenerating: string
     statusCompleted: string
     statusFailed: string
+    createFailed: string
   }
   legal: {
     termsLink: string
@@ -341,6 +342,7 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       statusGenerating: '生成中',
       statusCompleted: '已完成',
       statusFailed: '失败',
+      createFailed: '创建画布失败，请重试',
     },
     legal: {
       termsLink: '服务条款',
@@ -625,6 +627,7 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       statusGenerating: 'Generating',
       statusCompleted: 'Completed',
       statusFailed: 'Failed',
+      createFailed: 'Failed to create canvas. Please try again.',
     },
     legal: {
       termsLink: 'Terms',

@@ -11,6 +11,7 @@ import {
 import {
   assertCanvasStateWithinLimit,
   createEmptyCanvasState,
+  DEFAULT_CANVAS_NAME,
   parseCanvasState,
   sanitizeCanvasName,
 } from '@/lib/canvas/state'
@@ -88,4 +89,23 @@ export async function deleteCanvasAction(canvasId: string) {
   revalidatePath('/canvas')
 
   return { id: deleted.id }
+}
+
+export async function createFirstCanvasAction(): Promise<
+  { success: true; id: string } | { success: false; error: string }
+> {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return { success: false, error: 'Authentication required' }
+  }
+  try {
+    const created = await createCanvasForUser(session.user.id, {
+      name: DEFAULT_CANVAS_NAME,
+      state: createEmptyCanvasState(),
+    })
+    return { success: true, id: created.id }
+  } catch (error) {
+    console.error('[canvas] createFirstCanvas failed', error)
+    return { success: false, error: 'Failed to create canvas' }
+  }
 }
