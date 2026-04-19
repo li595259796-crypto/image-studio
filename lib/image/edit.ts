@@ -9,6 +9,7 @@ import {
   markGenerationJobCompleted,
   markGenerationJobFailed,
   preDeductQuota,
+  rollbackQuotaDeduction,
 } from '@/lib/db/generation-queries'
 import { getQuotaInfo } from '@/lib/db/queries'
 import { listUserApiKeysForUser } from '@/lib/db/user-api-keys-queries'
@@ -16,6 +17,7 @@ import { getByokMasterKeyFromEnv } from '@/lib/crypto/byok'
 import { getModelAdaptersForIds, runModelGeneration } from '@/lib/models/router'
 import { uploadImage } from '@/lib/storage'
 import type { ByokProvider } from '@/lib/byok/providers'
+import { shouldRollbackAfterLoop } from './edit-rollback'
 import type { EditInputValid } from './edit-validation'
 
 export {
@@ -95,8 +97,7 @@ export async function executeEditImage(args: {
     groupId,
     canvasId: undefined,
   })
-  // Row ids captured for potential future rollback-on-total-failure path; behavior mirrors original route.
-  void preDeducted.map((row) => row.id)
+  const preDeductedIds = preDeducted.map((row) => row.id)
 
   const results: EditResult[] = []
   for (const runContext of runContexts) {
@@ -149,6 +150,12 @@ export async function executeEditImage(args: {
         durationMs: result.durationMs,
       })
     }
+  }
+
+  if (shouldRollbackAfterLoop(results)) {
+    await rollbackQuotaDeduction(preDeductedIds).catch((err) => {
+      console.error('[edit-lib] rollback failed', err)
+    })
   }
 
   return { ok: true, groupId, results }
