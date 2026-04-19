@@ -73,6 +73,7 @@ export function useGenerateStream() {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
+        let receivedTerminalEvent = false
 
         while (true) {
           const { done, value } = await reader.read()
@@ -93,6 +94,7 @@ export function useGenerateStream() {
                   durationMs: message.data.durationMs,
                 })
                 setStatus('completed')
+                receivedTerminalEvent = true
                 break
               case 'job_failed':
                 setError({
@@ -101,6 +103,7 @@ export function useGenerateStream() {
                   durationMs: message.data.durationMs,
                 })
                 setStatus('failed')
+                receivedTerminalEvent = true
                 break
               case 'fatal':
                 setError({
@@ -109,6 +112,7 @@ export function useGenerateStream() {
                   durationMs: 0,
                 })
                 setStatus('failed')
+                receivedTerminalEvent = true
                 break
               case 'done':
               case 'started':
@@ -116,6 +120,16 @@ export function useGenerateStream() {
                 break
             }
           }
+        }
+
+        // Stream ended without a terminal event → treat as failure
+        if (!receivedTerminalEvent) {
+          setError({
+            errorCode: 'stream_closed_early',
+            message: '生成流意外中断，请重试',
+            durationMs: 0,
+          })
+          setStatus('failed')
         }
       } catch (caughtError: unknown) {
         if (caughtError instanceof DOMException && caughtError.name === 'AbortError') {
