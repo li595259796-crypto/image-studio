@@ -179,6 +179,7 @@ export async function POST(request: Request): Promise<Response> {
       })
 
       try {
+        let successCount = 0
         await Promise.allSettled(
           jobs.map(async (job, index) => {
             const jobStartedAt = Date.now()
@@ -252,6 +253,7 @@ export async function POST(request: Request): Promise<Response> {
                 result.durationMs
               )
 
+              successCount++
               send('job_completed', {
                 jobId: job.id,
                 modelId: adapter.definition.id,
@@ -281,6 +283,12 @@ export async function POST(request: Request): Promise<Response> {
             }
           })
         )
+
+        if (successCount === 0 && preDeductedIds.length > 0) {
+          await rollbackQuotaDeduction(preDeductedIds).catch((err) => {
+            console.error('[generate] rollback after 0 successes failed', err)
+          })
+        }
 
         send('done', { groupId })
         controller.close()
