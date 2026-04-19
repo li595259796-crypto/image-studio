@@ -128,6 +128,12 @@ export function parseSseMessages(input: string): {
   return { events, remainder }
 }
 
+export type StreamEndClassification = 'ok' | 'early_close'
+
+export function classifyStreamEnd(receivedTerminalEvent: boolean): StreamEndClassification {
+  return receivedTerminalEvent ? 'ok' : 'early_close'
+}
+
 function makeOptimisticJobId(localRunId: string, modelId: ModelId): string {
   return `temp:${localRunId}:${modelId}`
 }
@@ -256,6 +262,7 @@ export function useCanvasGenerationStream() {
           return
         }
 
+        let receivedTerminalEvent = false
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
@@ -331,6 +338,7 @@ export function useCanvasGenerationStream() {
                 if (completedJob && onCompleted) {
                   await onCompleted(completedJob)
                 }
+                receivedTerminalEvent = true
                 break
               }
               case 'job_failed': {
@@ -363,16 +371,24 @@ export function useCanvasGenerationStream() {
                 if (failedJob && onFailed) {
                   await onFailed(failedJob)
                 }
+                receivedTerminalEvent = true
                 break
               }
               case 'fatal':
                 setError(message.data.message)
                 await failLocalRun(localRunId, message.data.message, onFailed)
+                receivedTerminalEvent = true
                 break
               case 'done':
                 break
             }
           }
+        }
+
+        if (classifyStreamEnd(receivedTerminalEvent) === 'early_close') {
+          const message = '生成流意外中断，请重试'
+          setError(message)
+          await failLocalRun(localRunId, message, onFailed)
         }
       } catch (caughtError: unknown) {
         // AbortError means the component unmounted — don't update state
