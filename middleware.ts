@@ -32,6 +32,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(DASHBOARD_HOME, req.url))
   }
 
+  // Logged-in users visiting the landing page → dashboard. Keeping this
+  // redirect in middleware (instead of app/page.tsx) lets the landing page
+  // stay fully static (no cookies() read inside the route handler → Next.js
+  // SSG → Vercel edge cache HIT → fast TTFB for anonymous visitors).
+  if (pathname === '/' && isLoggedIn) {
+    return NextResponse.redirect(new URL(DASHBOARD_HOME, req.url))
+  }
+
   return NextResponse.next()
 }
 
