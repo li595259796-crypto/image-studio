@@ -94,6 +94,29 @@ interface LocaleCopy {
     generatingButton: string
     refineButton: string
   }
+  editForm: {
+    imagesLabel: string
+    promptLabel: string
+    promptPlaceholder: string
+    submitButton: string
+    submittingButton: string
+    dropzoneHint: string
+    dropzoneFormats: string
+    removeImageAria: string
+    loadSourceFailed: string
+    unsubmittedWarning: string
+  }
+  generateForm: {
+    promptLabel: string
+    modelLabel: string
+  }
+  imageActionError: {
+    generic: string
+    quotaExceeded: string
+    timeout: string
+    invalidReference: string
+    upstreamUnavailable: string
+  }
   postAction: {
     download: string
     continueEdit: string
@@ -408,6 +431,29 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       generatingButton: '生成中...',
       refineButton: '💡 帮我完善需求',
     },
+    editForm: {
+      imagesLabel: '参考图 (1-2 张)',
+      promptLabel: '编辑指令',
+      promptPlaceholder: '描述你想要的修改...',
+      submitButton: '开始编辑',
+      submittingButton: '编辑中...',
+      dropzoneHint: '拖拽图片到这里，或点击上传',
+      dropzoneFormats: '支持 PNG / JPG / WebP，单张最大 10MB',
+      removeImageAria: '删除第 {index} 张图',
+      loadSourceFailed: '无法加载源图片，请手动上传',
+      unsubmittedWarning: '有未提交的图片，离开此页会丢失。确定要离开吗？',
+    },
+    generateForm: {
+      promptLabel: '提示词',
+      modelLabel: '模型',
+    },
+    imageActionError: {
+      generic: '处理失败，请稍后重试。',
+      quotaExceeded: '今日额度已用完。',
+      timeout: '图像处理超时，请稍后重试。',
+      invalidReference: '参考图无效或已失效。',
+      upstreamUnavailable: '图像服务暂时不可用，请稍后再试。',
+    },
     postAction: {
       download: '下载',
       continueEdit: '继续编辑',
@@ -466,9 +512,9 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
     },
     settings: {
       tabs: {
-        account: 'Account',
-        security: 'Security',
-        apiKeys: 'API Keys',
+        account: '账户',
+        security: '安全',
+        apiKeys: 'API 密钥',
       },
       pageTitle: '账户设置',
       pageDescription: '管理个人资料、语言偏好和安全设置。',
@@ -692,6 +738,29 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       generateButton: '🎨 Generate',
       generatingButton: 'Generating...',
       refineButton: '💡 Help me refine',
+    },
+    editForm: {
+      imagesLabel: 'Reference images (1-2)',
+      promptLabel: 'Editing prompt',
+      promptPlaceholder: 'Describe the edits you want to make...',
+      submitButton: 'Edit',
+      submittingButton: 'Editing...',
+      dropzoneHint: 'Drop images here or click to upload',
+      dropzoneFormats: 'PNG, JPG, WebP up to 10MB',
+      removeImageAria: 'Remove image {index}',
+      loadSourceFailed: 'Failed to load source image, please upload manually',
+      unsubmittedWarning: 'You have unsubmitted images. Leaving will discard them. Continue?',
+    },
+    generateForm: {
+      promptLabel: 'Prompt',
+      modelLabel: 'Model',
+    },
+    imageActionError: {
+      generic: 'Request failed. Please try again.',
+      quotaExceeded: "Today's quota is exhausted.",
+      timeout: 'Image processing timed out. Please try again.',
+      invalidReference: 'Reference image is invalid or expired.',
+      upstreamUnavailable: 'Image service is temporarily unavailable. Please try again.',
     },
     postAction: {
       download: 'Download',

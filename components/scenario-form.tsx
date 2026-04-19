@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { useLocale } from '@/components/locale-provider'
-import { copy } from '@/lib/i18n'
 import { getScenario, buildPrompt, type ScenarioId } from '@/lib/scenarios'
 import { generateImageAction } from '@/app/actions/generate'
 import { editImageAction } from '@/app/actions/edit'
@@ -30,8 +29,9 @@ interface UploadedFile {
 
 export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
   const scenario = getScenario(scenarioId)
-  const { locale } = useLocale()
-  const t = copy[locale].scenario
+  const { locale, dictionary } = useLocale()
+  const t = dictionary.scenario
+  const uploadT = dictionary.editForm
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
@@ -203,7 +203,7 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
                 <>
                   <Upload className="size-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">{t.uploadLabel}</p>
-                  <p className="text-xs text-muted-foreground/70">PNG, JPG, WebP up to 10MB</p>
+                  <p className="text-xs text-muted-foreground/70">{uploadT.dropzoneFormats}</p>
                 </>
               )
             ) : (
@@ -216,11 +216,11 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
                 />
                 <button
                   type="button"
-                  aria-label="Remove image"
+                  aria-label={uploadT.removeImageAria.replace('{index}', String(1))}
                   onClick={(e) => { e.stopPropagation(); removeFile() }}
-                  className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                  className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full bg-destructive/90 text-destructive-foreground shadow-sm transition-opacity hover:bg-destructive"
                 >
-                  <X className="size-3" />
+                  <X className="size-4" />
                 </button>
               </div>
             )}
