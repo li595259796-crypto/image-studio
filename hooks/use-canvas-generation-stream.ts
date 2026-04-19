@@ -6,6 +6,8 @@ import type {
   ModelId,
   ModelProvider,
 } from '../lib/models/types.ts'
+import { useLocale } from '@/components/locale-provider'
+import { getImageActionErrorMessage } from '@/lib/image-action-error'
 
 export type GenerationStreamEvent =
   | {
@@ -142,6 +144,7 @@ export function useCanvasGenerationStream() {
   const [jobs, setJobs] = useState<GenerationClientJob[]>([])
   const [activeRunCount, setActiveRunCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const { locale } = useLocale()
   const jobsRef = useRef<GenerationClientJob[]>([])
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -386,7 +389,7 @@ export function useCanvasGenerationStream() {
         }
 
         if (classifyStreamEnd(receivedTerminalEvent) === 'early_close') {
-          const message = '生成流意外中断，请重试'
+          const message = getImageActionErrorMessage(locale, 'stream_closed_early')
           setError(message)
           await failLocalRun(localRunId, message, onFailed)
         }

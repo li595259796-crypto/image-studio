@@ -51,7 +51,7 @@ export function toImageActionFailureResult(
 
 export function getImageActionErrorMessage(
   locale: Locale,
-  errorCode: ActionResult['errorCode'] | undefined,
+  errorCode: ActionResult['errorCode'] | 'invalid_reference' | 'stream_closed_early' | undefined,
   fallback?: string
 ): string {
   const dict = copy[locale].imageActionError
@@ -63,6 +63,10 @@ export function getImageActionErrorMessage(
       return dict.timeout
     case 'upstream_unavailable':
       return dict.upstreamUnavailable
+    case 'invalid_reference':
+      return dict.invalidReference
+    case 'stream_closed_early':
+      return dict.streamClosed
     default:
       return fallback ?? dict.generic
   }

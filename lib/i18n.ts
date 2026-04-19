@@ -116,6 +116,7 @@ interface LocaleCopy {
     timeout: string
     invalidReference: string
     upstreamUnavailable: string
+    streamClosed: string
   }
   postAction: {
     download: string
@@ -453,6 +454,7 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       timeout: '图像处理超时，请稍后重试。',
       invalidReference: '参考图无效或已失效。',
       upstreamUnavailable: '图像服务暂时不可用，请稍后再试。',
+      streamClosed: '生成流意外中断，请重试',
     },
     postAction: {
       download: '下载',
@@ -761,6 +763,7 @@ export const copy: DeepReadonly<Record<Locale, LocaleCopy>> = deepFreeze({
       timeout: 'Image processing timed out. Please try again.',
       invalidReference: 'Reference image is invalid or expired.',
       upstreamUnavailable: 'Image service is temporarily unavailable. Please try again.',
+      streamClosed: 'Generation stream ended unexpectedly. Please try again.',
     },
     postAction: {
       download: 'Download',

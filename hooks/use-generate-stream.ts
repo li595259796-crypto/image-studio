@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { parseSseMessages } from './use-canvas-generation-stream'
+import { useLocale } from '@/components/locale-provider'
+import { getImageActionErrorMessage } from '@/lib/image-action-error'
 
 export type GenerateStreamStatus = 'idle' | 'processing' | 'completed' | 'failed'
 
@@ -21,6 +23,7 @@ export function useGenerateStream() {
   const [status, setStatus] = useState<GenerateStreamStatus>('idle')
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [error, setError] = useState<GenerateError | null>(null)
+  const { locale } = useLocale()
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const startGeneration = useCallback(
@@ -126,7 +129,7 @@ export function useGenerateStream() {
         if (!receivedTerminalEvent) {
           setError({
             errorCode: 'stream_closed_early',
-            message: '生成流意外中断，请重试',
+            message: getImageActionErrorMessage(locale, 'stream_closed_early'),
             durationMs: 0,
           })
           setStatus('failed')
