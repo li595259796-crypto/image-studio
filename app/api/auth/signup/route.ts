@@ -3,21 +3,56 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 
+// Covers 99%+ of real-world emails; full RFC 5322 is intentionally out of scope
+// for a format-only check (final source of truth is delivery at reset time).
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MIN_PASSWORD_LENGTH = 8
+const MAX_PASSWORD_LENGTH = 72 // bcrypt silently truncates past 72 bytes
+const MAX_EMAIL_LENGTH = 254 // RFC 5321 practical cap
+const MAX_NAME_LENGTH = 100
+
 export async function POST(request: Request) {
+  let body: { email?: unknown; password?: unknown; name?: unknown }
   try {
-    const { email, password, name } = await request.json()
+    body = (await request.json()) as typeof body
+  } catch {
+    return NextResponse.json({ error: 'Invalid request format' }, { status: 400 })
+  }
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
-    }
+  const { email, password, name } = body
 
-    const normalizedEmail = (email as string).trim().toLowerCase()
+  if (typeof email !== 'string' || typeof password !== 'string') {
+    return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
+  }
 
-    if (password.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
-    }
+  const normalizedEmail = email.trim().toLowerCase()
 
-    // Check existing user
+  if (normalizedEmail.length === 0 || normalizedEmail.length > MAX_EMAIL_LENGTH) {
+    return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
+  }
+  if (!EMAIL_REGEX.test(normalizedEmail)) {
+    return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
+  }
+
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return NextResponse.json(
+      { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` },
+      { status: 400 }
+    )
+  }
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return NextResponse.json(
+      { error: `Password must be ${MAX_PASSWORD_LENGTH} characters or fewer` },
+      { status: 400 }
+    )
+  }
+
+  const safeName =
+    typeof name === 'string' && name.trim().length > 0
+      ? name.trim().slice(0, MAX_NAME_LENGTH)
+      : null
+
+  try {
     const existing = await db.query.users.findFirst({
       where: (users, { eq }) => eq(users.email, normalizedEmail),
     })
@@ -30,7 +65,7 @@ export async function POST(request: Request) {
 
     await db.insert(users).values({
       email: normalizedEmail,
-      name: name || null,
+      name: safeName,
       password: hashedPassword,
     })
 
