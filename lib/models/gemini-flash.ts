@@ -84,9 +84,11 @@ export const geminiFlashAdapter: ModelAdapter = {
       // Add reference images as base64 data URIs
       if (options.referenceImageUrls && options.referenceImageUrls.length > 0) {
         for (const url of options.referenceImageUrls) {
-          const response = await fetch(url, {
-            signal: AbortSignal.timeout(30_000),
-          })
+          const timeoutSignal = AbortSignal.timeout(30_000)
+          const signal = options.signal
+            ? AbortSignal.any([timeoutSignal, options.signal])
+            : timeoutSignal
+          const response = await fetch(url, { signal })
           if (!response.ok) {
             return {
               ok: false,
@@ -129,6 +131,7 @@ export const geminiFlashAdapter: ModelAdapter = {
         {
           timeoutMs: getTimeoutMsFromEnv('GEMINI_IMAGE_TIMEOUT_MS'),
           invalidResponseMessage: 'Gemini proxy returned invalid JSON',
+          externalSignal: options.signal,
         }
       )
 

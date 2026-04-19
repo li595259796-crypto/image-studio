@@ -53,8 +53,15 @@ export type EditExecutionFailure = {
 export async function executeEditImage(args: {
   userId: string
   input: EditInputValid
+  /**
+   * Client-disconnect signal from the API route's request.signal. When
+   * it fires we break out of the per-model loop early and stop any
+   * in-flight upstream fetch, so the lambda can return instead of
+   * sitting in maxDuration idle.
+   */
+  signal?: AbortSignal
 }): Promise<EditExecutionSuccess | EditExecutionFailure> {
-  const { userId, input } = args
+  const { userId, input, signal } = args
   const { prompt, referenceImageUrls, modelIds } = input
 
   const groupId = randomUUID()
@@ -101,6 +108,13 @@ export async function executeEditImage(args: {
 
   const results: EditResult[] = []
   for (const runContext of runContexts) {
+    // Client disconnected between models — stop the serial loop so the
+    // lambda can return instead of running the remaining adapters against
+    // a gone client. Any already-accrued results are still returned.
+    if (signal?.aborted) {
+      break
+    }
+
     const adapter = runContext.adapter
     const jobId = randomUUID()
 
@@ -111,6 +125,7 @@ export async function executeEditImage(args: {
         aspectRatio: '1:1',
         apiKey: runContext.apiKey,
         referenceImageUrls,
+        signal,
       },
     })
 

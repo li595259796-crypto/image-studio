@@ -39,6 +39,12 @@ interface TimedFetchOptions {
   timeoutMs?: number
   invalidResponseMessage?: string
   retries?: number // number of retries on 429 (default 3)
+  /**
+   * External abort signal from the API route's request.signal. When the
+   * client disconnects, this trips and we abandon the upstream call
+   * instead of holding the lambda open for up to 300s.
+   */
+  externalSignal?: AbortSignal
 }
 
 export function getTimeoutMsFromEnv(
@@ -61,12 +67,21 @@ async function fetchWithTimeout(
   const maxRetries = options.retries ?? 3
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Fast-fail if the caller already aborted (e.g. client disconnected
+    // between retries). Avoids firing another upstream call we'll drop.
+    if (options.externalSignal?.aborted) {
+      throw new ImageApiError('network', 'Request aborted by caller')
+    }
+
     const controller = new AbortController()
     let didTimeout = false
     const timeoutId = setTimeout(() => {
       didTimeout = true
       controller.abort()
     }, timeoutMs)
+
+    const onExternalAbort = () => controller.abort()
+    options.externalSignal?.addEventListener('abort', onExternalAbort, { once: true })
 
     try {
       const response = await fetch(input, {
@@ -119,6 +134,7 @@ async function fetchWithTimeout(
       throw error
     } finally {
       clearTimeout(timeoutId)
+      options.externalSignal?.removeEventListener('abort', onExternalAbort)
     }
   }
 
