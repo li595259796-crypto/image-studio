@@ -22,6 +22,7 @@ export function useCanvasAutosave(
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlightRef = useRef(false)
   const dirtyRef = useRef(false)
+  const queueSaveRef = useRef<(state: PersistedCanvasState) => void>(() => {})
 
   // Flush the latest pending state to the server (used by beforeunload).
   const flushSync = useCallback(() => {
@@ -95,19 +96,12 @@ export function useCanvasAutosave(
             setStatus('error')
           } finally {
             inFlightRef.current = false
-            // If more changes arrived while we were saving, kick off another round.
+            // If more changes arrived while we were saving, re-enter the
+            // guarded queueSave path so the next save is properly tracked
+            // (inFlightRef set, transition gate respected, no concurrent
+            // double-save window).
             if (dirtyRef.current && pendingStateRef.current) {
-              const followUpSnapshot = pendingStateRef.current
-              setStatus('saving')
-              if (timeoutRef.current) clearTimeout(timeoutRef.current)
-              timeoutRef.current = setTimeout(() => {
-                void saveCanvasStateAction(canvasId, followUpSnapshot)
-                  .then(() => {
-                    dirtyRef.current = false
-                    setStatus('saved')
-                  })
-                  .catch(() => setStatus('error'))
-              }, DEBOUNCE_MS)
+              queueSaveRef.current(pendingStateRef.current)
             }
           }
         })
@@ -115,6 +109,8 @@ export function useCanvasAutosave(
     },
     [canvasId, startTransition]
   )
+
+  queueSaveRef.current = queueSave
 
   return {
     isDirty: status === 'saving' || status === 'error',
