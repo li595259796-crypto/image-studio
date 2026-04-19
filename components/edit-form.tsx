@@ -44,9 +44,10 @@ export function EditForm() {
   })
 
   const filesRef = useRef(files)
-  useEffect(() => {
-    filesRef.current = files
-  }, [files])
+  // Keep the ref pointing at the latest files on every render. Direct
+  // assignment (permitted by React) avoids the narrow stale-ref window
+  // that the useEffect-based pattern has on same-cycle unmounts.
+  filesRef.current = files
 
   useEffect(() => {
     return () => {
