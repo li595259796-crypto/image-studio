@@ -17,7 +17,10 @@ export function CanvasEmptyState() {
     startTransition(async () => {
       const result = await createFirstCanvasAction()
       if (!result.success) {
-        toast.error(result.error ?? dictionary.canvas.createFailed)
+        if (result.error) {
+          console.error('[canvas-empty-state]', result.error)
+        }
+        toast.error(dictionary.canvas.createFailed)
         return
       }
       router.push(`/canvas/${result.id}`)
