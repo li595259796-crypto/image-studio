@@ -60,11 +60,18 @@ export async function POST(request: Request): Promise<Response> {
   }
   const userId = session.user.id
 
+  let raw: Record<string, unknown>
+  try {
+    raw = (await request.json()) as Record<string, unknown>
+  } catch {
+    return jsonError('Invalid request format', 400)
+  }
+
   let parsed: ReturnType<typeof parseGenerateRequest>
   try {
-    const raw = (await request.json()) as Record<string, unknown>
     parsed = parseGenerateRequest(raw)
   } catch (error: unknown) {
+    // parseGenerateRequest throws Error with controlled messages (field names, enum hints)
     return jsonError(
       error instanceof Error ? error.message : 'Invalid generate request',
       400
