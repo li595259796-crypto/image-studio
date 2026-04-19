@@ -4,6 +4,8 @@ import type {
 } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
 export const DEFAULT_CANVAS_NAME = 'Untitled Canvas'
 export const CANVAS_STATE_MAX_BYTES = 5_000_000
 export const CANVAS_ASSET_LIMIT = 100
