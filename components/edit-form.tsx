@@ -17,6 +17,7 @@ import { PostActions } from '@/components/post-actions'
 import { getPreloadableSourceUrl } from '@/lib/edit-source'
 import { compressImage } from '@/lib/image-compress'
 import type { ActionResult, ImageResult } from '@/lib/types'
+import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 
 interface UploadedFile {
   file: File
@@ -37,12 +38,20 @@ export function EditForm() {
   const [isCompressing, setIsCompressing] = useState(false)
   const [prompt, setPrompt] = useState(() => searchParams.get('prompt') ?? '')
 
+  useUnsavedChangesWarning({
+    hasFiles: files.length > 0,
+    wasSubmitted: submitResult?.success === true,
+  })
+
+  const filesRef = useRef(files)
+  useEffect(() => {
+    filesRef.current = files
+  }, [files])
+
   useEffect(() => {
     return () => {
-      // Only revoke on unmount, not on every files change
-      files.forEach((f) => URL.revokeObjectURL(f.preview))
+      filesRef.current.forEach((f) => URL.revokeObjectURL(f.preview))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const addFiles = useCallback(
