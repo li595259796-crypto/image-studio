@@ -29,6 +29,7 @@ export async function POST(request: Request): Promise<Response> {
   const result = await executeEditImage({
     userId: session.user.id,
     input: validated.data,
+    signal: request.signal,
   })
 
   if (!result.ok) {

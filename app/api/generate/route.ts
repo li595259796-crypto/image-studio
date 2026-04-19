@@ -162,12 +162,27 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const encoder = new TextEncoder()
+  // Propagate client disconnect (tab close, route change) down to upstream
+  // provider fetches. Without this, Promise.allSettled(jobs) keeps running
+  // for up to maxDuration=300s even after the client is gone — each leaked
+  // invocation holds a Vercel function slot and DB connections.
+  const abortController = new AbortController()
+  const onClientAbort = () => abortController.abort()
+  request.signal.addEventListener('abort', onClientAbort, { once: true })
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (event: string, payload: unknown) => {
-        controller.enqueue(
-          encoder.encode(serializeSseEvent(event, payload))
-        )
+        // enqueue() throws if the stream has been errored/closed by the
+        // platform after a client disconnect. Swallow and trip the internal
+        // abort so downstream jobs stop ASAP.
+        try {
+          controller.enqueue(
+            encoder.encode(serializeSseEvent(event, payload))
+          )
+        } catch {
+          abortController.abort()
+        }
       }
 
       send('started', {
@@ -208,6 +223,7 @@ export async function POST(request: Request): Promise<Response> {
                   prompt: parsed.prompt,
                   aspectRatio: parsed.aspectRatio,
                   apiKey: runContext.apiKey,
+                  signal: abortController.signal,
                 },
               })
 

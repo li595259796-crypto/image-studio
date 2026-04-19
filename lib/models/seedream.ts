@@ -98,6 +98,7 @@ export const seedreamAdapter: ModelAdapter = {
         {
           timeoutMs: getTimeoutMsFromEnv('VOLCENGINE_IMAGE_TIMEOUT_MS'),
           invalidResponseMessage: 'Seedream returned invalid JSON',
+          externalSignal: options.signal,
         }
       )
 

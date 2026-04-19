@@ -133,6 +133,7 @@ export const tongyiAdapter: ModelAdapter = {
         {
           timeoutMs: getTimeoutMsFromEnv('DASHSCOPE_IMAGE_TIMEOUT_MS'),
           invalidResponseMessage: 'Tongyi returned invalid JSON',
+          externalSignal: options.signal,
         }
       )
 
@@ -155,7 +156,10 @@ export const tongyiAdapter: ModelAdapter = {
       const image = await fetchBytesWithTimeout(
         imageUrl,
         {},
-        { timeoutMs: getTimeoutMsFromEnv('DASHSCOPE_IMAGE_TIMEOUT_MS') }
+        {
+          timeoutMs: getTimeoutMsFromEnv('DASHSCOPE_IMAGE_TIMEOUT_MS'),
+          externalSignal: options.signal,
+        }
       )
 
       return {

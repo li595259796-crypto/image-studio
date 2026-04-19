@@ -13,6 +13,13 @@ export interface GenerateOptions {
   quality?: '1K' | '2K' | '4K'
   apiKey?: string
   referenceImageUrls?: string[]
+  /**
+   * External abort signal. When client disconnects (closes tab / navigates
+   * away), the API route propagates that abort through this field so the
+   * adapter's upstream HTTP calls can be cancelled and the lambda can
+   * return promptly instead of running to maxDuration.
+   */
+  signal?: AbortSignal
 }
 
 export type AdapterResult =
