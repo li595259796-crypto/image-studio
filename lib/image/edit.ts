@@ -84,7 +84,7 @@ export async function executeEditImage(args: {
     }
   }
 
-  await preDeductQuota({
+  const preDeducted = await preDeductQuota({
     userId,
     action: 'edit',
     models: runContexts.map((context) => ({
@@ -95,6 +95,8 @@ export async function executeEditImage(args: {
     groupId,
     canvasId: undefined,
   })
+  // Row ids captured for potential future rollback-on-total-failure path; behavior mirrors original route.
+  void preDeducted.map((row) => row.id)
 
   const results: EditResult[] = []
   for (const runContext of runContexts) {

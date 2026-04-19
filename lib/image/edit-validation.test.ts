@@ -79,3 +79,29 @@ test('validateEditInput accepts well-formed input', () => {
     assert.deepEqual(result.data.referenceImageUrls, ['https://x.blob.vercel-storage.com/a.png'])
   }
 })
+
+test('validateEditInput rejects undefined referenceImages', () => {
+  const result = validateEditInput({ prompt: 'hi', referenceImages: undefined, modelIds: ['gemini-3.1-flash'] })
+  assert.equal(result.ok, false)
+  assert.match(result.ok === false ? result.error : '', /At least one reference/)
+})
+
+test('validateEditInput rejects non-array referenceImages', () => {
+  const result = validateEditInput({
+    prompt: 'hi',
+    referenceImages: 'https://x.blob.vercel-storage.com/a.png' as unknown as string[],
+    modelIds: ['gemini-3.1-flash'],
+  })
+  assert.equal(result.ok, false)
+  assert.match(result.ok === false ? result.error : '', /At least one reference/)
+})
+
+test('validateEditInput rejects undefined modelIds', () => {
+  const result = validateEditInput({
+    prompt: 'hi',
+    referenceImages: ['https://x.blob.vercel-storage.com/a.png'],
+    modelIds: undefined,
+  })
+  assert.equal(result.ok, false)
+  assert.match(result.ok === false ? result.error : '', /At least one model/)
+})
