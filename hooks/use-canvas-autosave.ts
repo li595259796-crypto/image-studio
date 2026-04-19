@@ -7,7 +7,7 @@ import {
   type PersistedCanvasState,
   type SaveStatus,
 } from '@/lib/canvas/state'
-import { shouldFlipToSaving } from './use-canvas-autosave-gate'
+import { shouldAutoRetryAfterSave, shouldFlipToSaving } from './use-canvas-autosave-gate'
 
 const DEBOUNCE_MS = 800
 
@@ -78,12 +78,14 @@ export function useCanvasAutosave(
       timeoutRef.current = setTimeout(() => {
         startTransition(async () => {
           inFlightRef.current = true
+          let succeeded = false
           try {
             const serialized = assertCanvasStateWithinLimit(nextState)
 
             if (serialized === latestSavedSerializedRef.current) {
               dirtyRef.current = false
               setStatus('saved')
+              succeeded = true
               return
             }
 
@@ -92,15 +94,19 @@ export function useCanvasAutosave(
             pendingStateRef.current = null
             dirtyRef.current = false
             setStatus('saved')
+            succeeded = true
           } catch {
             setStatus('error')
           } finally {
             inFlightRef.current = false
-            // If more changes arrived while we were saving, re-enter the
-            // guarded queueSave path so the next save is properly tracked
-            // (inFlightRef set, transition gate respected, no concurrent
-            // double-save window).
-            if (dirtyRef.current && pendingStateRef.current) {
+            if (
+              shouldAutoRetryAfterSave({
+                succeeded,
+                dirty: dirtyRef.current,
+                hasPendingState: pendingStateRef.current !== null,
+              }) &&
+              pendingStateRef.current
+            ) {
               queueSaveRef.current(pendingStateRef.current)
             }
           }
