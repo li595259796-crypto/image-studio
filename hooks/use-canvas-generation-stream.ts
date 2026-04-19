@@ -6,6 +6,8 @@ import type {
   ModelId,
   ModelProvider,
 } from '../lib/models/types.ts'
+import { useLocale } from '@/components/locale-provider'
+import { getImageActionErrorMessage } from '@/lib/image-action-error'
 
 export type GenerationStreamEvent =
   | {
@@ -128,6 +130,12 @@ export function parseSseMessages(input: string): {
   return { events, remainder }
 }
 
+export type StreamEndClassification = 'ok' | 'early_close'
+
+export function classifyStreamEnd(receivedTerminalEvent: boolean): StreamEndClassification {
+  return receivedTerminalEvent ? 'ok' : 'early_close'
+}
+
 function makeOptimisticJobId(localRunId: string, modelId: ModelId): string {
   return `temp:${localRunId}:${modelId}`
 }
@@ -136,6 +144,7 @@ export function useCanvasGenerationStream() {
   const [jobs, setJobs] = useState<GenerationClientJob[]>([])
   const [activeRunCount, setActiveRunCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const { locale } = useLocale()
   const jobsRef = useRef<GenerationClientJob[]>([])
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -256,6 +265,7 @@ export function useCanvasGenerationStream() {
           return
         }
 
+        let receivedTerminalEvent = false
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
@@ -331,6 +341,7 @@ export function useCanvasGenerationStream() {
                 if (completedJob && onCompleted) {
                   await onCompleted(completedJob)
                 }
+                receivedTerminalEvent = true
                 break
               }
               case 'job_failed': {
@@ -363,16 +374,24 @@ export function useCanvasGenerationStream() {
                 if (failedJob && onFailed) {
                   await onFailed(failedJob)
                 }
+                receivedTerminalEvent = true
                 break
               }
               case 'fatal':
                 setError(message.data.message)
                 await failLocalRun(localRunId, message.data.message, onFailed)
+                receivedTerminalEvent = true
                 break
               case 'done':
                 break
             }
           }
+        }
+
+        if (classifyStreamEnd(receivedTerminalEvent) === 'early_close') {
+          const message = getImageActionErrorMessage(locale, 'stream_closed_early')
+          setError(message)
+          await failLocalRun(localRunId, message, onFailed)
         }
       } catch (caughtError: unknown) {
         // AbortError means the component unmounted — don't update state
@@ -390,7 +409,7 @@ export function useCanvasGenerationStream() {
         setActiveRunCount((count) => Math.max(0, count - 1))
       }
     },
-    [failLocalRun, updateJobs]
+    [failLocalRun, locale, updateJobs]
   )
 
   // Cleanup: abort in-flight SSE stream on component unmount

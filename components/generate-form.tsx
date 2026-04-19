@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useLocale } from '@/components/locale-provider'
-import { copy } from '@/lib/i18n'
 import { getScenario } from '@/lib/scenarios'
 import { showQuotaError } from '@/lib/error-toast'
 import { useGenerateStream } from '@/hooks/use-generate-stream'
@@ -30,8 +29,9 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio }: Gene
   const [prompt, setPrompt] = useState(initialPrompt ?? '')
   const [aspectRatio, setAspectRatio] = useState<string>(initialAspectRatio ?? '16:9')
   const [selectedModelId, setSelectedModelId] = useState<ModelId>(DEFAULT_MODEL_ID)
-  const { locale } = useLocale()
-  const t = copy[locale].scenario
+  const { locale, dictionary } = useLocale()
+  const t = dictionary.generateForm
+  const scenarioT = dictionary.scenario
   const freeformScenario = getScenario('freeform')
 
   const {
@@ -87,15 +87,15 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio }: Gene
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
             <ArrowLeft className="size-3.5" />
-            {t.backToScenarios}
+            {scenarioT.backToScenarios}
           </Button>
-          <span className="text-lg">{freeformScenario.icon} {t.freeform.name}</span>
+          <span className="text-lg">{freeformScenario.icon} {scenarioT.freeform.name}</span>
         </div>
       )}
 
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="prompt">Prompt</Label>
+          <Label htmlFor="prompt">{t.promptLabel}</Label>
           <Textarea
             id="prompt"
             name="prompt"
@@ -109,7 +109,7 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio }: Gene
         </div>
 
         <div className="space-y-2">
-          <Label>{t.aspectRatioLabel}</Label>
+          <Label>{scenarioT.aspectRatioLabel}</Label>
           <div className="flex flex-wrap gap-2">
             {aspectRatios.map((ratio) => (
               <Button
@@ -127,7 +127,7 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio }: Gene
         </div>
 
         <div className="space-y-2">
-          <Label>Model</Label>
+          <Label>{t.modelLabel}</Label>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -156,12 +156,12 @@ export function GenerateForm({ onBack, initialPrompt, initialAspectRatio }: Gene
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              {t.generatingButton}
+              {scenarioT.generatingButton}
             </>
           ) : (
             <>
               <Wand2 className="size-4" />
-              {t.generateButton}
+              {scenarioT.generateButton}
             </>
           )}
         </Button>

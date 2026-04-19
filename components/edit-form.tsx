@@ -17,6 +17,7 @@ import { PostActions } from '@/components/post-actions'
 import { getPreloadableSourceUrl } from '@/lib/edit-source'
 import { compressImage } from '@/lib/image-compress'
 import type { ActionResult, ImageResult } from '@/lib/types'
+import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 
 interface UploadedFile {
   file: File
@@ -25,7 +26,8 @@ interface UploadedFile {
 
 export function EditForm() {
   const searchParams = useSearchParams()
-  const { locale } = useLocale()
+  const { locale, dictionary } = useLocale()
+  const t = dictionary.editForm
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
@@ -36,12 +38,21 @@ export function EditForm() {
   const [isCompressing, setIsCompressing] = useState(false)
   const [prompt, setPrompt] = useState(() => searchParams.get('prompt') ?? '')
 
+  useUnsavedChangesWarning({
+    hasFiles: files.length > 0,
+    wasSubmitted: submitResult?.success === true,
+  })
+
+  const filesRef = useRef(files)
+  // Keep the ref pointing at the latest files on every render. Direct
+  // assignment (permitted by React) avoids the narrow stale-ref window
+  // that the useEffect-based pattern has on same-cycle unmounts.
+  filesRef.current = files
+
   useEffect(() => {
     return () => {
-      // Only revoke on unmount, not on every files change
-      files.forEach((f) => URL.revokeObjectURL(f.preview))
+      filesRef.current.forEach((f) => URL.revokeObjectURL(f.preview))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const addFiles = useCallback(
@@ -107,7 +118,7 @@ export function EditForm() {
 
         await addFiles([file], { onlyIfEmpty: true })
       } catch {
-        toast.error('无法加载源图片，请手动上传')
+        toast.error(t.loadSourceFailed)
       } finally {
         if (!cancelled) {
           setIsPreloadingSource(false)
@@ -192,7 +203,7 @@ export function EditForm() {
     <div className="space-y-6">
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
-          <Label>Images (1-2)</Label>
+          <Label>{t.imagesLabel}</Label>
           <div
             onDragOver={(e) => {
               e.preventDefault()
@@ -227,10 +238,10 @@ export function EditForm() {
                 <>
                   <Upload className="size-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
-                    Drop images here or click to upload
+                    {t.dropzoneHint}
                   </p>
                   <p className="text-xs text-muted-foreground/70">
-                    PNG, JPG, WebP up to 10MB
+                    {t.dropzoneFormats}
                   </p>
                 </>
               )
@@ -246,14 +257,14 @@ export function EditForm() {
                     />
                     <button
                       type="button"
-                      aria-label={`Remove image ${i + 1}`}
+                      aria-label={t.removeImageAria.replace('{index}', String(i + 1))}
                       onClick={(e) => {
                         e.stopPropagation()
                         removeFile(i)
                       }}
-                      className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                      className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full bg-destructive/90 text-destructive-foreground shadow-sm transition-opacity hover:bg-destructive"
                     >
-                      <X className="size-3" />
+                      <X className="size-4" />
                     </button>
                   </div>
                 ))}
@@ -280,13 +291,13 @@ export function EditForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="edit-prompt">Editing Prompt</Label>
+          <Label htmlFor="edit-prompt">{t.promptLabel}</Label>
           <Textarea
             id="edit-prompt"
             name="prompt"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the edits you want to make..."
+            placeholder={t.promptPlaceholder}
             className="min-h-28 resize-none"
             required
             disabled={isPending}
@@ -302,12 +313,12 @@ export function EditForm() {
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Editing...
+              {t.submittingButton}
             </>
           ) : (
             <>
               <ImagePlus className="size-4" />
-              Edit
+              {t.submitButton}
             </>
           )}
         </Button>

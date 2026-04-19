@@ -5,9 +5,9 @@ import { saveCanvasStateAction } from '@/app/actions/canvas'
 import {
   assertCanvasStateWithinLimit,
   type PersistedCanvasState,
+  type SaveStatus,
 } from '@/lib/canvas/state'
-
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+import { shouldFlipToSaving } from './use-canvas-autosave-gate'
 
 const DEBOUNCE_MS = 800
 
@@ -20,6 +20,9 @@ export function useCanvasAutosave(
   const latestSavedSerializedRef = useRef(initialSerialized)
   const pendingStateRef = useRef<PersistedCanvasState | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inFlightRef = useRef(false)
+  const dirtyRef = useRef(false)
+  const queueSaveRef = useRef<(state: PersistedCanvasState) => void>(() => {})
 
   // Flush the latest pending state to the server (used by beforeunload).
   const flushSync = useCallback(() => {
@@ -57,11 +60,16 @@ export function useCanvasAutosave(
 
   const queueSave = useCallback(
     (nextState: PersistedCanvasState) => {
-      // Store the latest state for beforeunload flush.
-      // Do NOT serialize here — onChange fires on every mouse move during drag.
       pendingStateRef.current = nextState
+      dirtyRef.current = true
 
-      setStatus('saving')
+      // Only flip the visible status when transitioning from a non-saving state.
+      // Previously setStatus('saving') fired on every pointer-move during drag,
+      // causing unnecessary re-renders AND the badge to look stuck because the
+      // debounced save didn't visibly transition it back to 'saved'.
+      if (shouldFlipToSaving(inFlightRef.current)) {
+        setStatus('saving')
+      }
 
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
@@ -69,11 +77,12 @@ export function useCanvasAutosave(
 
       timeoutRef.current = setTimeout(() => {
         startTransition(async () => {
+          inFlightRef.current = true
           try {
-            // Size check happens here (after debounce), not on every onChange.
             const serialized = assertCanvasStateWithinLimit(nextState)
 
             if (serialized === latestSavedSerializedRef.current) {
+              dirtyRef.current = false
               setStatus('saved')
               return
             }
@@ -81,15 +90,27 @@ export function useCanvasAutosave(
             await saveCanvasStateAction(canvasId, nextState)
             latestSavedSerializedRef.current = serialized
             pendingStateRef.current = null
+            dirtyRef.current = false
             setStatus('saved')
           } catch {
             setStatus('error')
+          } finally {
+            inFlightRef.current = false
+            // If more changes arrived while we were saving, re-enter the
+            // guarded queueSave path so the next save is properly tracked
+            // (inFlightRef set, transition gate respected, no concurrent
+            // double-save window).
+            if (dirtyRef.current && pendingStateRef.current) {
+              queueSaveRef.current(pendingStateRef.current)
+            }
           }
         })
       }, DEBOUNCE_MS)
     },
     [canvasId, startTransition]
   )
+
+  queueSaveRef.current = queueSave
 
   return {
     isDirty: status === 'saving' || status === 'error',

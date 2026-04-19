@@ -28,3 +28,13 @@ test('parseSseMessages returns parsed events and preserves the trailing partial 
   })
   assert.match(parsed.remainder, /^event: fatal/)
 })
+
+import { classifyStreamEnd } from './use-canvas-generation-stream'
+
+test('classifyStreamEnd returns ok when terminal event was seen', () => {
+  assert.equal(classifyStreamEnd(true), 'ok')
+})
+
+test('classifyStreamEnd returns early_close when no terminal seen', () => {
+  assert.equal(classifyStreamEnd(false), 'early_close')
+})

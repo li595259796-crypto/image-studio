@@ -8,8 +8,7 @@ import { createCanvasAction, renameCanvasAction } from '@/app/actions/canvas'
 import { useLocale } from '@/components/locale-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+import type { SaveStatus } from '@/lib/canvas/state'
 
 export function CanvasToolbar({
   canvasId,

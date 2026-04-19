@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { parseSseMessages } from './use-canvas-generation-stream'
+import { useLocale } from '@/components/locale-provider'
+import { getImageActionErrorMessage } from '@/lib/image-action-error'
 
 export type GenerateStreamStatus = 'idle' | 'processing' | 'completed' | 'failed'
 
@@ -21,6 +23,7 @@ export function useGenerateStream() {
   const [status, setStatus] = useState<GenerateStreamStatus>('idle')
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [error, setError] = useState<GenerateError | null>(null)
+  const { locale } = useLocale()
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const startGeneration = useCallback(
@@ -73,6 +76,7 @@ export function useGenerateStream() {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
+        let receivedTerminalEvent = false
 
         while (true) {
           const { done, value } = await reader.read()
@@ -93,6 +97,7 @@ export function useGenerateStream() {
                   durationMs: message.data.durationMs,
                 })
                 setStatus('completed')
+                receivedTerminalEvent = true
                 break
               case 'job_failed':
                 setError({
@@ -101,6 +106,7 @@ export function useGenerateStream() {
                   durationMs: message.data.durationMs,
                 })
                 setStatus('failed')
+                receivedTerminalEvent = true
                 break
               case 'fatal':
                 setError({
@@ -109,6 +115,7 @@ export function useGenerateStream() {
                   durationMs: 0,
                 })
                 setStatus('failed')
+                receivedTerminalEvent = true
                 break
               case 'done':
               case 'started':
@@ -116,6 +123,16 @@ export function useGenerateStream() {
                 break
             }
           }
+        }
+
+        // Stream ended without a terminal event → treat as failure
+        if (!receivedTerminalEvent) {
+          setError({
+            errorCode: 'stream_closed_early',
+            message: getImageActionErrorMessage(locale, 'stream_closed_early'),
+            durationMs: 0,
+          })
+          setStatus('failed')
         }
       } catch (caughtError: unknown) {
         if (caughtError instanceof DOMException && caughtError.name === 'AbortError') {
@@ -131,7 +148,7 @@ export function useGenerateStream() {
         abortControllerRef.current = null
       }
     },
-    []
+    [locale]
   )
 
   const cancelGeneration = useCallback(() => {

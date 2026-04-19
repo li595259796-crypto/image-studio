@@ -1,4 +1,4 @@
-import type { Locale } from './i18n'
+import { copy, type Locale } from '@/lib/i18n'
 import type { ActionResult, ImageResult } from './types'
 
 type ImageOperation = 'generate' | 'edit'
@@ -51,20 +51,23 @@ export function toImageActionFailureResult(
 
 export function getImageActionErrorMessage(
   locale: Locale,
-  errorCode: ActionResult['errorCode'] | undefined,
+  errorCode: ActionResult['errorCode'] | 'invalid_reference' | 'stream_closed_early' | undefined,
   fallback?: string
 ): string {
-  if (errorCode === 'upstream_timeout') {
-    return locale === 'zh'
-      ? '图像处理超时，请稍后重试。'
-      : 'Image processing timed out. Please try again.'
-  }
+  const dict = copy[locale].imageActionError
 
-  if (errorCode === 'upstream_unavailable') {
-    return locale === 'zh'
-      ? '图像服务暂时不可用，请稍后再试。'
-      : 'Image service is temporarily unavailable. Please try again.'
+  switch (errorCode) {
+    case 'quota_exceeded':
+      return dict.quotaExceeded
+    case 'upstream_timeout':
+      return dict.timeout
+    case 'upstream_unavailable':
+      return dict.upstreamUnavailable
+    case 'invalid_reference':
+      return dict.invalidReference
+    case 'stream_closed_early':
+      return dict.streamClosed
+    default:
+      return fallback ?? dict.generic
   }
-
-  return fallback ?? (locale === 'zh' ? '处理失败，请稍后重试。' : 'Request failed. Please try again.')
 }
