@@ -148,7 +148,7 @@ export function useGenerateStream() {
         abortControllerRef.current = null
       }
     },
-    []
+    [locale]
   )
 
   const cancelGeneration = useCallback(() => {

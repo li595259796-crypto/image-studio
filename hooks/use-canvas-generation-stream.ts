@@ -409,7 +409,7 @@ export function useCanvasGenerationStream() {
         setActiveRunCount((count) => Math.max(0, count - 1))
       }
     },
-    [failLocalRun, updateJobs]
+    [failLocalRun, locale, updateJobs]
   )
 
   // Cleanup: abort in-flight SSE stream on component unmount
