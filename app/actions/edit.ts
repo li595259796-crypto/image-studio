@@ -2,9 +2,10 @@
 
 import { auth } from '@/lib/auth'
 import { checkQuota } from '@/lib/quota'
+import { executeEditImage, validateEditInput } from '@/lib/image/edit'
 import { toImageActionFailureResult } from '@/lib/image-action-error'
 import { uploadImage } from '@/lib/storage'
-import { insertImage, recordUsage } from '@/lib/db/queries'
+import { recordUsage } from '@/lib/db/queries'
 import { fileTypeFromBuffer } from 'file-type'
 import type { ActionResult, ImageResult } from '@/lib/types'
 
@@ -75,7 +76,7 @@ export async function editImageAction(
       }
     }
 
-    // Upload reference images first, then call /api/edit
+    // Upload reference images first, then run edit via shared lib
     const referenceUrls: string[] = []
     for (const file of [image1, image2]) {
       if (!file || file.size === 0) continue
@@ -84,39 +85,25 @@ export async function editImageAction(
       referenceUrls.push(url)
     }
 
-    const baseUrl =
-      process.env.APP_URL ??
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-    const res = await fetch(`${baseUrl}/api/edit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt,
-        referenceImages: referenceUrls,
-        modelIds: ['gemini-3.1-flash'],
-        userId: session.user.id,
-      }),
+    const validated = validateEditInput({
+      prompt,
+      referenceImages: referenceUrls,
+      modelIds: ['gemini-3.1-flash'],
+    })
+    if (!validated.ok) {
+      return { success: false, error: validated.error }
+    }
+
+    const editResult = await executeEditImage({
+      userId: session.user.id,
+      input: validated.data,
     })
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      return {
-        success: false,
-        error: (body as { error?: string }).error ?? 'Edit failed',
-      }
+    if (!editResult.ok) {
+      return { success: false, error: editResult.error }
     }
 
-    const body = (await res.json()) as {
-      success: boolean
-      results: Array<{
-        imageId?: string
-        blobUrl?: string
-        errorCode?: string
-        message?: string
-      }>
-    }
-
-    const result = body.results?.[0]
+    const result = editResult.results[0]
     if (!result || !result.imageId || !result.blobUrl) {
       return {
         success: false,
