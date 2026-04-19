@@ -216,11 +216,11 @@ export function ScenarioForm({ scenarioId, onBack }: ScenarioFormProps) {
                 />
                 <button
                   type="button"
-                  aria-label={uploadT.removeImageAria.replace('{index}', '1')}
+                  aria-label={uploadT.removeImageAria.replace('{index}', String(1))}
                   onClick={(e) => { e.stopPropagation(); removeFile() }}
-                  className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                  className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full bg-destructive/90 text-destructive-foreground shadow-sm transition-opacity hover:bg-destructive"
                 >
-                  <X className="size-3" />
+                  <X className="size-4" />
                 </button>
               </div>
             )}
