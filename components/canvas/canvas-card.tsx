@@ -36,6 +36,11 @@ export function CanvasCard({ canvas }: { canvas: CanvasListItem }) {
         </div>
         <Link
           href={`/canvas/${canvas.id}`}
+          // Default prefetch=true causes N simultaneous /canvas/[id] RSC
+          // preloads when the canvas list mounts — each is a DB round-trip.
+          // With N canvases that's an N-way cascade. Only prefetch on
+          // explicit hover/focus, not on card mount.
+          prefetch={false}
           className={cn(buttonVariants({ size: 'sm' }), 'shrink-0 rounded-full')}
         >
           <ExternalLink className="size-4" />

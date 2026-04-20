@@ -2,6 +2,10 @@
 
 import dynamic from 'next/dynamic'
 import { CaptureUpdateAction } from '@excalidraw/excalidraw'
+// Excalidraw CSS (141 KB) moved here from app/layout.tsx — was render-blocking
+// every route including the landing page. Importing here keeps it scoped to
+// routes that actually mount the canvas board.
+import '@excalidraw/excalidraw/index.css'
 import {
   pickPersistedAppState,
   toExcalidrawInitialData,
@@ -24,12 +28,23 @@ import type {
   FileId,
 } from '@excalidraw/excalidraw/element/types'
 
+function CanvasLoadingSkeleton() {
+  return (
+    <div className="flex size-full items-center justify-center bg-muted/30">
+      <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+        <div className="size-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+        <span>加载画布中…</span>
+      </div>
+    </div>
+  )
+}
+
 const Excalidraw = dynamic(
   async () => {
     const mod = await import('@excalidraw/excalidraw')
     return mod.Excalidraw
   },
-  { ssr: false }
+  { ssr: false, loading: CanvasLoadingSkeleton }
 )
 
 function toPersistedCanvasState(

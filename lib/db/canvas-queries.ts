@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { canvases } from '@/lib/db/schema'
@@ -5,7 +6,10 @@ import type { PersistedCanvasState } from '@/lib/canvas/state'
 
 export type CanvasStateRecord = PersistedCanvasState
 
-export async function listCanvasesForUser(userId: string) {
+// React cache() dedupes same-args read within a request. Cheap to wrap;
+// high value if any layout or server component ends up reading the same
+// canvas twice (common with related-data fetches).
+export const listCanvasesForUser = cache(async (userId: string) => {
   return db
     .select({
       id: canvases.id,
@@ -18,9 +22,9 @@ export async function listCanvasesForUser(userId: string) {
     .from(canvases)
     .where(eq(canvases.userId, userId))
     .orderBy(desc(canvases.lastOpenedAt), desc(canvases.updatedAt))
-}
+})
 
-export async function getCanvasByIdAndUser(userId: string, canvasId: string) {
+export const getCanvasByIdAndUser = cache(async (userId: string, canvasId: string) => {
   const result = await db
     .select()
     .from(canvases)
@@ -28,7 +32,7 @@ export async function getCanvasByIdAndUser(userId: string, canvasId: string) {
     .limit(1)
 
   return result[0] ?? null
-}
+})
 
 export async function createCanvasForUser(
   userId: string,

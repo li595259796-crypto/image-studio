@@ -5,7 +5,10 @@ import { Toaster } from 'sonner'
 import { LocaleProvider } from '@/components/locale-provider'
 import { BRAND_NAME, defaultLocale } from '@/lib/i18n'
 import './globals.css'
-import '@excalidraw/excalidraw/index.css'
+// Excalidraw CSS is now imported inside components/canvas/excalidraw-board.tsx
+// so it only loads on routes that actually render the canvas editor. Keeping
+// it here was adding ~141 KB of render-blocking CSS to every route (landing,
+// login, settings, etc.).
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

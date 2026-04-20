@@ -1,9 +1,14 @@
+import { cache } from 'react'
 import { eq, gte, and, count, desc, lte, sql, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { getGallerySinceDate, type GalleryTimeRange } from '@/lib/gallery'
 import { users, images, usageLogs, tasks } from './schema'
 
-export async function getUserById(userId: string) {
+// React cache() dedupes calls with the same args within a single request.
+// Without this, (dashboard)/layout.tsx and the page components each read
+// users/quota separately, producing 2-4 redundant Postgres round-trips per
+// navigation. cache() collapses them to one.
+export const getUserById = cache(async (userId: string) => {
   const result = await db
     .select()
     .from(users)
@@ -11,9 +16,9 @@ export async function getUserById(userId: string) {
     .limit(1)
 
   return result[0] ?? null
-}
+})
 
-export async function getUserProfile(userId: string) {
+export const getUserProfile = cache(async (userId: string) => {
   const result = await db
     .select({
       name: users.name,
@@ -26,30 +31,19 @@ export async function getUserProfile(userId: string) {
     .limit(1)
 
   return result[0] ?? null
-}
+})
 
 export async function updateUserLocale(userId: string, locale: string) {
   await db.update(users).set({ locale }).where(eq(users.id, userId))
 }
 
-export async function getQuotaInfo(userId: string): Promise<{
+export const getQuotaInfo = cache(async (userId: string): Promise<{
   dailyUsed: number
   dailyLimit: number
   monthlyUsed: number
   monthlyLimit: number
   allowed: boolean
-}> {
-  const user = await getUserById(userId)
-
-  if (!user) {
-    throw new Error('User not found')
-  }
-
-  // Legacy rows are backfilled in supabase/migrations/002_p6c_cleanup.sql,
-  // so quota enforcement can trust the stored value directly.
-  const dailyLimit = user.dailyQuota
-  const monthlyLimit = user.monthlyQuota
-
+}> => {
   const now = new Date()
   const startOfDay = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
@@ -58,7 +52,12 @@ export async function getQuotaInfo(userId: string): Promise<{
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
   )
 
-  const [dailyResult, monthlyResult] = await Promise.all([
+  // Run all three reads concurrently. Previously getUserById was awaited
+  // first, then the two counts in parallel — that serialized one extra
+  // Postgres round-trip per quota check. Now it's one round-trip's worth
+  // of wall time for all three.
+  const [user, dailyResult, monthlyResult] = await Promise.all([
+    getUserById(userId),
     db
       .select({ value: count() })
       .from(usageLogs)
@@ -81,6 +80,14 @@ export async function getQuotaInfo(userId: string): Promise<{
       ),
   ])
 
+  if (!user) {
+    throw new Error('User not found')
+  }
+
+  // Legacy rows are backfilled in supabase/migrations/002_p6c_cleanup.sql,
+  // so quota enforcement can trust the stored value directly.
+  const dailyLimit = user.dailyQuota
+  const monthlyLimit = user.monthlyQuota
   const dailyUsed = dailyResult[0]?.value ?? 0
   const monthlyUsed = monthlyResult[0]?.value ?? 0
 
@@ -91,7 +98,7 @@ export async function getQuotaInfo(userId: string): Promise<{
     monthlyLimit,
     allowed: dailyUsed < dailyLimit && monthlyUsed < monthlyLimit,
   }
-}
+})
 
 export async function getDailyUsageCountForQuotaSource(
   userId: string,
